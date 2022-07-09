@@ -5,35 +5,11 @@ import os
 import re
 import stat
 import subprocess
-import tarfile
 import time
 from pathlib import Path
 
-import requests
-from tqdm import tqdm
 
 __toolchain_reference_binaries = {}
-
-
-class ProgressFileObject(io.FileIO):
-    def __init__(self, path, *args, **kwargs):
-        self._total_size = os.path.getsize(path)
-        self.__count = 0
-        self.__tqdm = tqdm(
-            total=self._total_size, unit="iB", unit_scale=True, unit_divisor=1024
-        )
-        io.FileIO.__init__(self, path, *args, **kwargs)
-
-    def read(self, size):
-        pos = self.tell()
-        if self.__count != pos:
-            self.__tqdm.update(pos - self.__count)
-        self.__count = pos
-        return io.FileIO.read(self, size)
-
-    def close(self):
-        super(ProgressFileObject, self).close()
-        self.__tqdm.close()
 
 
 def __verify_is_gcc_clang_executable(binary_path, compiler_name):
@@ -134,28 +110,6 @@ def get_compiler_binary_path(base_dir):
     return exec_path
 
 
-def download_file(url, fname):
-    logging.info("Start download of %s", url)
-    resp = requests.get(url, stream=True)
-    total = int(resp.headers.get("content-length", 0))
-    with open(fname, "wb") as file, tqdm(
-        desc=fname,
-        total=total,
-        unit="iB",
-        unit_scale=True,
-        unit_divisor=1024,
-    ) as bar:
-        for data in resp.iter_content(chunk_size=1024):
-            size = file.write(data)
-            bar.update(size)
-
-
-def extract_file(file, target):
-    logging.info("Start extraction of %s", file)
-    with tarfile.open(fileobj=ProgressFileObject(file)) as tar:
-        tar.extractall(target)
-        return os.path.join(target, os.path.commonprefix(tar.getnames()))
-
 
 def call_process(arg_list, cwd=None, timeout=180, shell=False):
     command_str = " ".join(map(str, arg_list))
@@ -218,7 +172,7 @@ def install_apt_packages(names, timeout=None):
         command,
         stdout=open(os.devnull, "wb"),
         stderr=subprocess.STDOUT,
-        # By default use 3 minutes as timeout for each packet
+        # By default, use 3 minutes as timeout for each packet
         timeout=3 * 60 * len(names) if not timeout else timeout,
     )
 

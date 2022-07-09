@@ -6,6 +6,7 @@ import shutil
 import subprocess
 
 import conan_manager
+import file_utils
 import utils
 import tempfile
 import installation
@@ -33,7 +34,7 @@ class ToolInstaller(metaclass=abc.ABCMeta):
             self._target_dir = os.path.join(base_install_dir, tool_key)
 
         if create_target and not os.path.exists(self._target_dir):
-            pathlib.Path(self._target_dir).mkdir(parents=True, exist_ok=True)
+            file_utils.create_directory_structure(self._target_dir)
 
         self._temp_dir = None
         self._sources_dir = None
@@ -78,8 +79,8 @@ class ToolSourceInstaller(ToolInstaller):
         sources_tar_path = os.path.join(
             self._temp_dir.name, os.path.basename(parsed_url.path)
         )
-        utils.download_file(self._url, sources_tar_path)
-        self._sources_dir = utils.extract_file(sources_tar_path, self._temp_dir.name)
+        file_utils.download_file(self._url, sources_tar_path)
+        self._sources_dir = file_utils.extract_file(sources_tar_path, self._temp_dir.name)
 
     def _acquire_packages(self):
         packages = self._config.get("required-packages", [])
@@ -418,8 +419,8 @@ class CopyOnlySourcesInstaller(ToolInstaller):
         sources_tar_path = os.path.join(
             self._temp_dir.name, os.path.basename(parsed_url.path)
         )
-        utils.download_file(self._url, sources_tar_path)
-        source_dir = utils.extract_file(sources_tar_path, self._temp_dir.name)
+        file_utils.download_file(self._url, sources_tar_path)
+        source_dir = file_utils.extract_file(sources_tar_path, self._temp_dir.name)
         shutil.copytree(source_dir, self._target_dir)
 
         self._compute_tool_version()
