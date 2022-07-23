@@ -1,7 +1,0 @@
-#!/bin/bash
-
-# Local .env
-if [ -f $BUILDER_ENVIRONMENT_PATH ]; then
-    # Load Environment Variables
-    export $(cat $BUILDER_ENVIRONMENT_PATH | grep -v '#' | awk '/=/ {print $1}')
-fi

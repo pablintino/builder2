@@ -1,0 +1,17 @@
+#!/usr/bin/env python3
+
+import configargparse
+
+from commands import bootstrap, install, load_certificates
+
+parser = configargparse.ArgumentParser(prog='builder2')
+subparsers = parser.add_subparsers(dest='command', required=True)
+
+if __name__ == "__main__":
+    bootstrap.register(subparsers)
+    install.register(subparsers)
+    install.register(subparsers)
+    load_certificates.register(subparsers)
+
+    args = parser.parse_args()
+    args.func(args)

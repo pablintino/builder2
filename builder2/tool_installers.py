@@ -1,44 +1,60 @@
 import abc
+import dataclasses
 import logging
 import os
 import pathlib
 import shutil
-import subprocess
-
-import conan_manager
-import file_utils
-import utils
 import tempfile
-import installation
 from urllib.parse import urlparse
+
+import command_line
+import compilers_support
+import crypto_utils
+import file_utils
+import java_support
+import package_manager
+import utils
+from exceptions import BuilderException
+from installation_summary import ComponentInstallation
+
+
+@dataclasses.dataclass
+class ToolInstallationResult:
+    success: bool
+    installation: ComponentInstallation = None
+    error: BaseException = None
 
 
 class ToolInstaller(metaclass=abc.ABCMeta):
-    def __init__(self, tool_key, config, base_install_dir, create_target=True):
-        self.tool_key = tool_key
-        self._config = config
-        self._url = config.get("url", None)
-        if not self._url:
-            raise SystemExit(f"Tool url is mandatory. Tool key:{tool_key}")
-
-        self.name = config.get("name", None)
-        if not self.name:
-            raise SystemExit(f"Tool name is mandatory. Tool key:{tool_key}")
-
-        self._target_dir = os.path.join(base_install_dir, tool_key)
-
-        # If tool is in a group install in their directory
-        if "group" in config and config["group"]:
-            self._target_dir = os.path.join(base_install_dir, config["group"], tool_key)
-        else:
-            self._target_dir = os.path.join(base_install_dir, tool_key)
-
-        if create_target and not os.path.exists(self._target_dir):
-            file_utils.create_directory_structure(self._target_dir)
-
+    def __init__(self, *args, **kwargs):
+        self.tool_key = args[0]
+        self._config = args[1]
+        self._execution_parameters = args[2]
+        self._url = self._config.get("url", None)
+        self._expected_hash = self._config.get("expected-hash", None)
         self._temp_dir = None
         self._sources_dir = None
         self._version = None
+        self._package_hash = None
+        self._wellknown_paths = {}
+        self._component_env_vars = {}
+        self._logger = logging.getLogger(self.__class__.__name__)
+
+        if not self._url:
+            raise BuilderException(f"Tool url is mandatory. Tool key:{self.tool_key}")
+
+        self.name = self._config.get("name", None)
+        if not self.name:
+            raise BuilderException(f"Tool name is mandatory. Tool key:{self.tool_key}")
+
+        # If tool is in a group install in their directory
+        if "group" in self._config and self._config["group"]:
+            self._target_dir = os.path.join(self._execution_parameters.target_dir, self._config["group"], self.tool_key)
+        else:
+            self._target_dir = os.path.join(self._execution_parameters.target_dir, self.tool_key)
+
+        if kwargs.get('create_target', True) and not os.path.exists(self._target_dir):
+            pathlib.Path(self._target_dir).mkdir(parents=True, exist_ok=True)
 
     def __enter__(self):
         self._temp_dir = tempfile.TemporaryDirectory()
@@ -49,43 +65,65 @@ class ToolInstaller(metaclass=abc.ABCMeta):
         if exception_type and self._target_dir and os.path.exists(self._target_dir):
             shutil.rmtree(self._target_dir, ignore_errors=True)
 
-    def _create_installation_summary(self):
-        tool_summary = {
-            "version": self._version,
-            "path": self._target_dir,
-            "name": self.name,
-            "installation-config": self._config,
-        }
-        if "group" in self._config:
-            tool_summary["group"] = self._config["group"]
-
-        return tool_summary
+    def _create_component_installation(self):
+        return ComponentInstallation(
+            name=self.name,
+            version=self._version,
+            path=self._target_dir,
+            key=self.tool_key,
+            type=self._config["type"],
+            package_hash=self._package_hash,
+            default=self._config.get('default', False),
+            configuration=self._config,
+            wellknown_paths=self._wellknown_paths,
+            environment_vars=self._component_env_vars
+        )
 
     def _compute_tool_version(self):
         if "version" not in self._config:
-            SystemExit(
+            BuilderException(
                 f"Cannot determine component version. Component key: {self.tool_key}"
             )
         self._version = self._config["version"]
 
-    @abc.abstractmethod
-    def run_installation(self):
-        pass
-
-
-class ToolSourceInstaller(ToolInstaller):
     def _acquire_sources(self):
         parsed_url = urlparse(self._url)
         sources_tar_path = os.path.join(
             self._temp_dir.name, os.path.basename(parsed_url.path)
         )
         file_utils.download_file(self._url, sources_tar_path)
+
+        if self._expected_hash:
+            crypto_utils.validate_file_hash(sources_tar_path, self._expected_hash)
+
         self._sources_dir = file_utils.extract_file(sources_tar_path, self._temp_dir.name)
+        self._package_hash = crypto_utils.compute_file_sha1(sources_tar_path)
 
     def _acquire_packages(self):
         packages = self._config.get("required-packages", [])
         if type(packages) is list and packages:
-            utils.install_apt_packages(packages)
+            package_manager.install_packages(packages)
+
+    def _compute_wellknown_paths(self):
+        # Defaults to the already created empty dict
+        pass
+
+    def _compute_component_env_vars(self):
+        # Defaults to the already created empty dict
+        pass
+
+    @abc.abstractmethod
+    def run_installation(self) -> ComponentInstallation:
+        pass
+
+
+class ToolSourceInstaller(ToolInstaller):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._build_dir = None
+        self._in_source_build = kwargs.get('in_source_build', False)
+        self._timeouts = kwargs.get('timeouts', (300, 900, 300))
 
     def _create_config_cmd(self):
         return [
@@ -99,42 +137,62 @@ class ToolSourceInstaller(ToolInstaller):
     def _create_install_cmd(self):
         return ["make", "install"]
 
-    def _configure(self, timeout=300, directory=None, shell=False):
-        utils.run_process(
-            self._create_config_cmd(),
-            cwd=self._sources_dir if not directory else directory,
-            timeout=utils.get_command_timeout(timeout),
-            shell=shell,
+    def _configure(self, timeout=None, directory=None, shell=None):
+        cmd = self._create_config_cmd()
+        cwd = directory
+        if self._in_source_build:
+            self._build_dir = build_path = os.path.join(self._temp_dir.name, "build")
+            os.mkdir(build_path)
+            cwd = self._build_dir
+
+        command_line.run_process(
+            cmd,
+            cwd=self._sources_dir if not cwd else cwd,
+            timeout=utils.get_command_timeout(timeout if timeout else self._timeouts[0],
+                                              self._execution_parameters.time_multiplier),
+            # If command is a string (typical cmake cases as it has problems detecting -D opts) use shell mode
+            shell=shell or (isinstance(cmd, str) and shell is None),
         )
 
-    def _build(self, timeout=900, directory=None, shell=False):
-        utils.run_process(
+    def _build(self, timeout=None, directory=None, shell=False):
+        cwd = self._build_dir if self._in_source_build else directory
+        command_line.run_process(
             self._create_build_cmd(),
-            cwd=self._sources_dir if not directory else directory,
-            timeout=utils.get_command_timeout(timeout),
+            cwd=self._sources_dir if not cwd else cwd,
+            timeout=utils.get_command_timeout(timeout if timeout else self._timeouts[1],
+                                              self._execution_parameters.time_multiplier),
             shell=shell,
         )
 
-    def _install(self, timeout=300, directory=None, shell=False):
-        utils.run_process(
+    def _install(self, timeout=None, directory=None, shell=False):
+        cwd = self._build_dir if self._in_source_build else directory
+        command_line.run_process(
             self._create_install_cmd(),
-            cwd=self._sources_dir if not directory else directory,
-            timeout=utils.get_command_timeout(timeout),
+            cwd=self._sources_dir if not cwd else cwd,
+            timeout=utils.get_command_timeout(timeout if timeout else self._timeouts[2],
+                                              self._execution_parameters.time_multiplier),
             shell=shell,
         )
-        installation_summary = self._create_installation_summary()
-        installation.add_tool_to_summary(self.tool_key, installation_summary)
-        conan_manager.create_profiles_from_compiler(
-            self.tool_key, self._config, installation_summary
-        )
 
-    def run_installation(self):
-        self._acquire_sources()
-        self._acquire_packages()
-        self._configure()
-        self._compute_tool_version()
-        self._build()
-        self._install()
+    def _configure_pre_hook(self):
+        pass
+
+    def run_installation(self) -> ComponentInstallation:
+        try:
+            self._acquire_sources()
+            self._acquire_packages()
+            self._configure_pre_hook()
+            self._configure()
+            self._build()
+            self._install()
+            self._compute_tool_version()
+            self._compute_wellknown_paths()
+            self._compute_component_env_vars()
+            return self._create_component_installation()
+
+        # TODO Reduce exception scope to something not too wide
+        except BaseException as e:
+            raise BuilderException(f'Error installing {self.tool_key} component') from e
 
 
 class CMakeSourcesInstaller(ToolSourceInstaller):
@@ -149,17 +207,21 @@ class CMakeSourcesInstaller(ToolSourceInstaller):
                             self._version = parts[2].replace('"', "").strip()
                             return
 
-        super(CMakeSourcesInstaller, self)._compute_tool_version()
+        super()._compute_tool_version()
 
     def _create_config_cmd(self):
         return [
             os.path.join(self._sources_dir, "bootstrap"),
-            f"--parallel={utils.get_max_allowed_cpus()}",
+            f"--parallel={self._execution_parameters.core_count}",
             f"--prefix={self._target_dir}",
         ]
 
 
 class GccSourcesInstaller(ToolSourceInstaller):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, in_source_build=True, timeouts=(300, 2000, 300), **kwargs)
+
     def __get_gcc_source_version(self):
         with open(os.path.join(self._sources_dir, "gcc", "BASE-VER")) as ver_file:
             return ver_file.readline().strip()
@@ -173,26 +235,26 @@ class GccSourcesInstaller(ToolSourceInstaller):
         opts = []
         if self._config.get("suffix-version", False):
             gcc_version = self.__get_gcc_source_version()
-            logging.info("GCC version read from sources: %s", gcc_version)
+            self._logger.info("GCC version read from sources: %s", gcc_version)
             suffix = f"-{gcc_version.rsplit('.', 1)[0] if gcc_version.endswith('.0') else gcc_version}"
-            logging.info("GCC executables suffixed with: %s", suffix)
+            self._logger.info("GCC executables suffixed with: %s", suffix)
             opts.append(f"--program-suffix={suffix}")
         else:
-            logging.info("GCC executables will not be suffixed")
+            self._logger.info("GCC executables will not be suffixed")
 
-        arq_guess = utils.call_process(
+        arq_guess = command_line.run_process(
             ["./config.guess"], cwd=self._sources_dir
         ).strip()
-        logging.info("GCC config.guess result: %s", arq_guess)
+        self._logger.info("GCC config.guess result: %s", arq_guess)
 
         languages = (
             ",".join(map(str, self._config["languages"]))
             if "languages" in self._config
             else "c,c++"
         )
-        logging.info("GCC configured languages: %s", languages)
+        self._logger.info("GCC configured languages: %s", languages)
 
-        logging.info("GCC installation path: %s", self._target_dir)
+        self._logger.info("GCC installation path: %s", self._target_dir)
 
         opts.extend(
             [
@@ -204,14 +266,14 @@ class GccSourcesInstaller(ToolSourceInstaller):
             ]
         )
         opts.extend(self.__get_gcc_custom_build_opts())
-        logging.info("GCC configure options: %s", " ".join(map(str, opts)))
+        self._logger.info("GCC configure options: %s", " ".join(map(str, opts)))
 
         command = [os.path.join(self._sources_dir, "configure")]
         command.extend(opts)
         return command
 
     def _create_build_cmd(self):
-        return ["make", "-j", f"{utils.get_max_allowed_cpus()}"]
+        return ["make", "-j", f"{self._execution_parameters.core_count}"]
 
     def _create_install_cmd(self):
         return ["make", "install-strip"]
@@ -221,41 +283,29 @@ class GccSourcesInstaller(ToolSourceInstaller):
         if version:
             self._version = version
         else:
-            super(GccSourcesInstaller, self)._compute_tool_version()
+            super()._compute_tool_version()
 
-    def _create_installation_summary(self):
-        base_summary = super(GccSourcesInstaller, self)._create_installation_summary()
+    def _create_component_installation(self):
+        base_summary = super()._create_component_installation()
+        target_triplet = command_line.run_process(
+            [self._wellknown_paths[compilers_support.EXEC_NAME_GCC_CC], '-dumpmachine']).strip()
+        return dataclasses.replace(base_summary, triplet=target_triplet)
 
-        target_triplet = utils.check_output_compiler_reference_binary(
-            self._target_dir, "-dumpmachine"
-        ).strip()
-        base_summary["triplet"] = target_triplet
-        return base_summary
+    def _compute_wellknown_paths(self):
+        self._wellknown_paths.update(compilers_support.get_gcc_wellknown_paths(self._target_dir))
 
-    def run_installation(self):
-        self._acquire_sources()
-        self._acquire_packages()
-        self._compute_tool_version()
-
+    def _configure_pre_hook(self):
         # Download required libs before start configuration
-        utils.run_process(
+        command_line.run_process(
             ["contrib/download_prerequisites"], cwd=self._sources_dir, timeout=1800
         )
 
-        build_path = os.path.join(self._temp_dir.name, "build")
-        os.mkdir(build_path)
-
-        self._configure(directory=build_path, timeout=300)
-        try:
-            # Timeout for GCC with all languages enabled
-            self._build(directory=build_path, timeout=2000)
-            self._install(directory=build_path, timeout=300)
-        except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
-            utils.capture_file_stdout(os.path.join(build_path, "Makefile"))
-            raise
-
 
 class ClangSourcesInstaller(ToolSourceInstaller):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, in_source_build=True, timeouts=(300, 3400, 300), **kwargs)
+
     def __get_clang_custom_build_opts(self):
         opts = self._config.get("config-opts", [])
         reserved = (
@@ -280,13 +330,13 @@ class ClangSourcesInstaller(ToolSourceInstaller):
             if "modules" in self._config
             else "clang,clang-tools-extra"
         )
-        logging.info("Clang/LLVM configured with this modules: %s", llvm_modules)
+        self._logger.info("Clang/LLVM configured with this modules: %s", llvm_modules)
         opts.append(f'-DLLVM_ENABLE_PROJECTS="{llvm_modules}"')
 
         config_runtimes = self._config.get("runtimes", [])
         if config_runtimes:
             llvm_runtimes = ";".join(map(str, config_runtimes))
-            logging.info("Clang/LLVM configured with this runtimes: %s", llvm_runtimes)
+            self._logger.info("Clang/LLVM configured with this runtimes: %s", llvm_runtimes)
             opts.append(f'-DLLVM_ENABLE_RUNTIMES="{llvm_runtimes}"')
 
         opts.extend(self.__get_clang_custom_build_opts())
@@ -297,7 +347,7 @@ class ClangSourcesInstaller(ToolSourceInstaller):
         return " ".join(map(str, command))
 
     def _create_build_cmd(self):
-        return ["ninja", "-j", f"{utils.get_max_allowed_cpus()}"]
+        return ["ninja", "-j", f"{self._execution_parameters.core_count}"]
 
     def _create_install_cmd(self):
         return ["ninja", "install"]
@@ -307,38 +357,24 @@ class ClangSourcesInstaller(ToolSourceInstaller):
             os.path.join(self._temp_dir.name, "build", "CMakeCache.txt")
         )
         if not self._version:
-            super(ClangSourcesInstaller, self)._compute_tool_version()
+            super()._compute_tool_version()
 
-    def _create_installation_summary(self):
-        base_summary = super(ClangSourcesInstaller, self)._create_installation_summary()
+    def _create_component_installation(self):
+        base_summary = super()._create_component_installation()
 
         # Remember. This ic GCC native, but clang implements the command as well
         # Note: Keep in mind that clang itself could not be present if not selected to be compiled: Optional
-        target_triplet = utils.check_output_compiler_reference_binary(
-            self._target_dir, "-dumpmachine", optional=True
-        )
-        if target_triplet:
-            target_triplet = target_triplet.strip()
-            base_summary["triplet"] = target_triplet
-        return base_summary
+        clang_bin_path = self._wellknown_paths.get(compilers_support.EXEC_NAME_CLANG_CC, None)
+        if clang_bin_path:
+            return dataclasses.replace(
+                base_summary,
+                triplet=compilers_support.get_compiler_triplet(clang_bin_path)
+            )
+        else:
+            return base_summary
 
-    def run_installation(self):
-        self._acquire_sources()
-        self._acquire_packages()
-
-        build_path = os.path.join(self._temp_dir.name, "build")
-        os.mkdir(build_path)
-
-        # Shell is mandatory (command is passed as string, not list) as it seems that by using the normal way
-        #  CMake ignores -D options
-        self._configure(directory=build_path, timeout=300, shell=True)
-
-        # Version depends on CMakeCache created after configuration
-        self._compute_tool_version()
-
-        # Simplified timeout that assumes all options enabled
-        self._build(directory=build_path, timeout=3400)
-        self._install(directory=build_path, timeout=300)
+    def _compute_wellknown_paths(self):
+        self._wellknown_paths.update(compilers_support.get_clang_wellknown_paths(self._target_dir))
 
 
 class CppCheckSourcesInstaller(ToolSourceInstaller):
@@ -359,7 +395,7 @@ class CppCheckSourcesInstaller(ToolSourceInstaller):
         return " ".join(map(str, command))
 
     def _create_build_cmd(self):
-        return ["ninja", "-j", f"{utils.get_max_allowed_cpus()}"]
+        return ["ninja", "-j", f"{self._execution_parameters.core_count}"]
 
     def _create_install_cmd(self):
         return ["ninja", "install"]
@@ -373,24 +409,12 @@ class CppCheckSourcesInstaller(ToolSourceInstaller):
                 os.path.join(self._sources_dir, "CMakeCache.txt")
             )
         if not self._version:
-            super(CppCheckSourcesInstaller, self)._compute_tool_version()
+            super()._compute_tool_version()
 
-    def run_installation(self):
-        self._acquire_sources()
-
-        # Hardcoded mandatory dependency if rules are compiled
-        compile_rules = self._config.get("compile-rules", True)
-        if compile_rules:
-            utils.install_apt_packages(["libpcre3", "libpcre3-dev"])
-
-        # Shell is mandatory (command is passed as string, not list) as it seems that by using the normal way
-        #  CMake ignores -D options
-        self._configure(timeout=120, shell=True)
-
-        self._compute_tool_version()
-
-        self._build(timeout=300)
-        self._install(timeout=120)
+    def _configure_pre_hook(self):
+        # Hardcoded mandatory dependencies if rules are compiled
+        if self._config.get("compile-rules", True):
+            package_manager.install_packages(["libpcre3", "libpcre3-dev"])
 
 
 class ValgrindSourcesInstaller(ToolSourceInstaller):
@@ -405,67 +429,88 @@ class ValgrindSourcesInstaller(ToolSourceInstaller):
                             self._version = parts[1].strip()
                             return
 
-        super(ToolSourceInstaller, self)._compute_tool_version()
+        super()._compute_tool_version()
 
 
 class CopyOnlySourcesInstaller(ToolInstaller):
-    def __init__(self, tool_name, config, base_install_dir):
-        super(CopyOnlySourcesInstaller, self).__init__(
-            tool_name, config, base_install_dir, create_target=False
-        )
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, create_target=False, **kwargs)
 
-    def run_installation(self):
-        parsed_url = urlparse(self._url)
-        sources_tar_path = os.path.join(
-            self._temp_dir.name, os.path.basename(parsed_url.path)
-        )
-        file_utils.download_file(self._url, sources_tar_path)
-        source_dir = file_utils.extract_file(sources_tar_path, self._temp_dir.name)
-        shutil.copytree(source_dir, self._target_dir)
+    def run_installation(self) -> ComponentInstallation:
+        try:
+            self._acquire_sources()
+            self._acquire_packages()
+            shutil.copytree(self._sources_dir, self._target_dir)
 
-        self._compute_tool_version()
-        installation.add_tool_to_summary(
-            self.tool_key, self._create_installation_summary()
-        )
+            # Discover paths before trying to fetch compiler version
+            self._compute_wellknown_paths()
+            self._compute_tool_version()
+            self._compute_component_env_vars()
+            return self._create_component_installation()
+
+            # TODO Reduce exception scope to something not too wide¡
+        except BaseException as e:
+            raise BuilderException(f'Error installing {self.tool_key} component') from e
 
 
 class DownloadOnlyCompilerInstaller(CopyOnlySourcesInstaller):
+
+    def __get_binary_path(self):
+        if compilers_support.EXEC_NAME_CLANG_CC in self._wellknown_paths:
+            return self._wellknown_paths[compilers_support.EXEC_NAME_CLANG_CC]
+        elif compilers_support.EXEC_NAME_GCC_CC in self._wellknown_paths:
+            return self._wellknown_paths[compilers_support.EXEC_NAME_GCC_CC]
+
+        return None
+
     def _compute_tool_version(self):
-        self._version = utils.check_output_compiler_reference_binary(
-            self._target_dir, "-dumpversion"
-        ).strip()
+        binary = self.__get_binary_path()
+        if binary:
+            self._version = command_line.run_process([binary, '-dumpversion']).strip()
+
         if not self._version:
-            super(CopyOnlySourcesInstaller, self)._compute_tool_version()
+            super()._compute_tool_version()
 
-    def _create_installation_summary(self):
-        base_summary = super(
-            DownloadOnlyCompilerInstaller, self
-        )._create_installation_summary()
+    def _create_component_installation(self):
+        base_summary = super()._create_component_installation()
 
-        # Remember. This ic GCC native, but clang implements the command as well
-        target_triplet = utils.check_output_compiler_reference_binary(
-            self._target_dir, "-dumpmachine"
-        ).strip()
-        base_summary["triplet"] = target_triplet
-        return base_summary
+        binary = self.__get_binary_path()
+        return dataclasses.replace(base_summary,
+                                   triplet=compilers_support.get_compiler_triplet(binary)) if binary else base_summary
+
+    def _compute_wellknown_paths(self):
+        self._wellknown_paths.update(compilers_support.get_gcc_wellknown_paths(self._target_dir))
+        self._wellknown_paths.update(compilers_support.get_clang_wellknown_paths(self._target_dir))
 
 
-def get_installer(tool_key, config, base_install_dir):
+class JdkInstaller(CopyOnlySourcesInstaller):
+    def _compute_tool_version(self):
+        # Try get version from jdk files
+        self._version = java_support.get_jdk_version(self._target_dir)
+        if not self._version:
+            super()._compute_tool_version()
+
+    def _compute_wellknown_paths(self):
+        self._wellknown_paths.update(java_support.get_jdk_wellknown_paths(self._target_dir))
+
+    def _compute_component_env_vars(self):
+        if self._config.get("default", False) and java_support.DIR_NAME_JAVA_HOME in self._wellknown_paths:
+            self._component_env_vars['JAVA_HOME'] = self._wellknown_paths[java_support.DIR_NAME_JAVA_HOME]
+
+
+def get_installer(tool_key, config, execution_parameters):
     installer_type = config["type"]
-    if installer_type == "gcc-build":
-        return GccSourcesInstaller(tool_key, config, base_install_dir)
-    if installer_type == "cmake-build":
-        return CMakeSourcesInstaller(tool_key, config, base_install_dir)
-    if installer_type == "download-only":
-        return CopyOnlySourcesInstaller(tool_key, config, base_install_dir)
-    if installer_type == "cppcheck-build":
-        return CppCheckSourcesInstaller(tool_key, config, base_install_dir)
-    if installer_type == "generic-build":
-        return ToolSourceInstaller(tool_key, config, base_install_dir)
-    if installer_type == "clang-build":
-        return ClangSourcesInstaller(tool_key, config, base_install_dir)
-    if installer_type == "valgrind-build":
-        return ValgrindSourcesInstaller(tool_key, config, base_install_dir)
-    if installer_type == "download-only-compiler":
-        return DownloadOnlyCompilerInstaller(tool_key, config, base_install_dir)
-    raise SystemExit(f"Installer type not supported {installer_type}")
+    return __INSTALLERS[installer_type](tool_key, config, execution_parameters)
+
+
+__INSTALLERS = {
+    "gcc-build": GccSourcesInstaller,
+    "cmake-build": CMakeSourcesInstaller,
+    "download-only": CopyOnlySourcesInstaller,
+    "cppcheck-build": CppCheckSourcesInstaller,
+    "generic-build": ToolSourceInstaller,
+    "clang-build": ClangSourcesInstaller,
+    "valgrind-build": ValgrindSourcesInstaller,
+    "download-only-compiler": DownloadOnlyCompilerInstaller,
+    "jdk": JdkInstaller
+}

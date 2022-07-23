@@ -2,20 +2,13 @@ import configparser
 import os.path
 import pathlib
 
+import command_line
+import compilers_support
 import utils
-import installation
-
-__DEFAULT_CONAN_PROFILES_PATH = "/tools/conan/profiles"
+from exceptions import BuilderException
 
 
-def __get_conan_profiles_path():
-    conan_profiles_path = os.environ.get(
-        "BUILDER_CONAN_PROFILES_PATH", __DEFAULT_CONAN_PROFILES_PATH
-    )
-    return conan_profiles_path if conan_profiles_path else __DEFAULT_CONAN_PROFILES_PATH
-
-
-def __prepare_common_profile_file(installation_info, compiler, release_type):
+def __prepare_common_profile_file(component_installation, release_type):
     config = configparser.ConfigParser()
     # Preserve uppercase
     config.optionxform = str
@@ -25,63 +18,91 @@ def __prepare_common_profile_file(installation_info, compiler, release_type):
     config.add_section("options")
     config.add_section("settings")
 
-    compiler_installation_path = installation_info["path"]
-    triplet = installation_info.get("triplet", "").split("-")
-    if "triplet" not in installation_info or (len(triplet) != 3 and len(triplet) != 4):
-        raise SystemExit(f"Compiler triplet empty or not recognised: {triplet}")
+    triplet = component_installation.triplet.split("-") if component_installation.triplet else None
+    if len(triplet) != 3 and len(triplet) != 4:
+        raise BuilderException(f"Compiler triplet empty or not recognised: {triplet}")
 
     config["settings"]["arch"] = triplet[0]
     config["settings"]["os"] = (
         triplet[1] if len(triplet) == 3 else triplet[2]
     ).capitalize()
-    config["settings"]["compiler"] = compiler
+
     config["settings"]["compiler.version"] = (
-        installation_info["version"].strip().split(".")[0]
+        component_installation.version.strip().split(".")[0]
     )
     config["settings"]["build_type"] = release_type
 
-    compiler_bin_path = utils.get_compiler_binary_path(compiler_installation_path)
-    if compiler == "clang":
-        config["settings"]["compiler.libcxx"] = "libc++"
-        config["env"]["CC"] = compiler_bin_path
-        config["env"]["CXX"] = os.path.join(
-            os.path.dirname(compiler_bin_path),
-            os.path.basename(compiler_bin_path).replace("clang", "clang++"),
-        )
-    else:
-        gcc_version_output = utils.check_output_compiler_reference_binary(
-            installation_info["path"], "-v"
-        )
-        config["settings"]["compiler.libcxx"] = (
-            "libstdc++11"
-            if "--with-default-libstdcxx-abi=new" in gcc_version_output
-            else "libstdc++"
-        )
-        config["env"]["CC"] = compiler_bin_path
-        config["env"]["CXX"] = os.path.join(
-            os.path.dirname(compiler_bin_path),
-            os.path.basename(compiler_bin_path).replace("gcc", "g++"),
-        )
     return config
 
 
-def create_profiles_from_compiler(tool_key, tool_metadata, installation_info):
-    tool_name = tool_metadata["name"]
-    create_profiles_flag = tool_metadata.get("conan-profile", False)
-    if create_profiles_flag and (tool_name == "clang" or tool_name == "gcc"):
-        conan_profiles_path = __get_conan_profiles_path()
-        # Create conan profiles dir if not exists
-        pathlib.Path(conan_profiles_path).mkdir(parents=True, exist_ok=True)
+def __prepare_clang_profile_file(component_installation, config_parser):
+    clang_path = component_installation.wellknown_paths.get(compilers_support.EXEC_NAME_CLANG_CC, None)
+    if not clang_path:
+        raise BuilderException('Cannot determine clang executable path to create conan profile')
+    clang_cpp_path = component_installation.wellknown_paths.get(compilers_support.EXEC_NAME_CLANG_CXX, None)
+    if not clang_cpp_path:
+        raise BuilderException('Cannot determine clang++ executable path to create conan profile')
 
-        for release_type in ["Debug", "Release"]:
-            config = __prepare_common_profile_file(
-                installation_info, tool_name, release_type
-            )
-            profile_name = f"cpp-builder-{utils.replace_non_alphanumeric(tool_key, '-')}-{release_type.lower()}.profile"
-            profile_path = os.path.join(conan_profiles_path, profile_name)
-            with open(profile_path, "w") as configfile:
-                config.write(configfile)
+    config_parser["settings"]["compiler.libcxx"] = "libc++"
+    config_parser["env"]["CC"] = clang_path
+    config_parser["env"]["CXX"] = clang_cpp_path
+    config_parser["settings"]["compiler"] = 'clang'
 
-            # Add a custom env var that point to profile path
-            profile_env_name = f"BUILDER_CONAN_PROFILE_{utils.replace_non_alphanumeric(tool_key, '_')}_{release_type}".upper()
-            installation.add_custom_env_var(profile_env_name, profile_path)
+    return config_parser
+
+
+def __prepare_gcc_profile_file(component_installation, config_parser):
+    gcc_path = component_installation.wellknown_paths.get(compilers_support.EXEC_NAME_GCC_CC, None)
+    if not gcc_path:
+        raise BuilderException('Cannot determine gcc executable path to create conan profile')
+    gpp_path = component_installation.wellknown_paths.get(compilers_support.EXEC_NAME_GCC_CXX, None)
+    if not gpp_path:
+        raise BuilderException('Cannot determine g++ executable path to create conan profile')
+
+    config_parser["env"]["CC"] = gcc_path
+    config_parser["env"]["CXX"] = gpp_path
+    config_parser["settings"]["compiler"] = 'gcc'
+
+    gcc_version_output = command_line.run_process([gcc_path, '-v'])
+    config_parser["settings"]["compiler.libcxx"] = (
+        "libstdc++11"
+        if "--with-default-libstdcxx-abi=new" in gcc_version_output
+        else "libstdc++"
+    )
+
+    return config_parser
+
+
+def create_profiles_from_installation(installation_summary, target_dir):
+    profile_vars = {}
+    for component_key, component_installation in installation_summary.get_components().items():
+
+        create_profiles_flag = component_installation.configuration.get("conan-profile", False)
+        if create_profiles_flag and (component_installation.name == "clang" or component_installation.name == "gcc"):
+
+            conan_profiles_path = os.path.join(target_dir, 'conan', 'profiles')
+            # Create conan profiles dir if not exists
+            pathlib.Path(conan_profiles_path).mkdir(parents=True, exist_ok=True)
+
+            for release_type in ["Debug", "Release"]:
+                config_parser = __prepare_common_profile_file(component_installation, release_type)
+                if component_installation.name == "clang":
+                    config_parser = __prepare_clang_profile_file(component_installation, config_parser)
+                else:
+                    config_parser = __prepare_gcc_profile_file(component_installation, config_parser)
+
+                profile_name = f"cpp-builder-{utils.replace_non_alphanumeric(component_key, '-')}" \
+                               f"-{release_type.lower()}.profile"
+                profile_path = os.path.join(conan_profiles_path, profile_name)
+                with open(profile_path, "w") as configfile:
+                    config_parser.write(configfile)
+
+                # Add a custom env var that point to profile path
+                profile_env_name = f"BUILDER_CONAN_PROFILE_{utils.replace_non_alphanumeric(component_key, '_')}" \
+                                   f"_{release_type}".upper()
+                profile_vars[profile_env_name] = profile_path
+        elif create_profiles_flag:
+            raise BuilderException(
+                f'Cannot create conan profile for {component_key} component. Only clang and gcc are supported')
+
+    return profile_vars
