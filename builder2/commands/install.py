@@ -1,29 +1,38 @@
 import logging
 import os
-import sys
+
+import marshmallow.exceptions
 
 import conan_manager
-import file_utils
 import environment_builder
+import file_utils
 import loggers
 import package_manager
 import tool_installers
-from exceptions import BuilderException
+from commands import command_commons
+from exceptions import BuilderException, BuilderValidationException
 from execution_parameters import ExecutionParameters
 from installation_summary import InstallationSummary
+from models.metadata_models import ToolchainMetadataSchema
 
 __logger = logging.getLogger()
 
 
-def __install_components(config, execution_parameters, installation_summary):
-    for component_key, components_config in config.get("components", {}).items():
-        with tool_installers.get_installer(component_key, components_config, execution_parameters) as installer:
+def __load_toolchain_metadata(path):
+    try:
+        return ToolchainMetadataSchema().load(data=file_utils.read_json_file(path))
+    except marshmallow.exceptions.ValidationError as err:
+        raise BuilderValidationException('Validation issues in toolchain metadata', err.messages_dict)
+
+
+def __install_components(components, execution_parameters, installation_summary):
+    for component_key, component_config in components.items():
+        with tool_installers.get_installer(component_key, component_config, execution_parameters) as installer:
             component_installation = installer.run_installation()
-            installation_summary.add_component(component_installation)
+            installation_summary.add_component(component_key, component_installation)
 
 
-def __install_system_packages(config, installation_summary):
-    system_packages = config.get('system-packages', [])
+def __install_system_packages(system_packages, installation_summary):
     package_manager.install_packages(system_packages)
     for package_name in system_packages:
         installation_summary.add_system_package(package_name)
@@ -40,11 +49,11 @@ def __install(args):
     loggers.configure()
 
     try:
-        config = file_utils.read_json_file(execution_parameters.file_name)
+        toolchain_metadata = __load_toolchain_metadata(execution_parameters.file_name)
         installation_summary = InstallationSummary(installation_path=args.target_dir)
 
-        __install_system_packages(config, installation_summary)
-        __install_components(config, execution_parameters, installation_summary)
+        __install_system_packages(toolchain_metadata.system_packages, installation_summary)
+        __install_components(toolchain_metadata.components, execution_parameters, installation_summary)
 
         # Add conan profiles env vars and all component ones
         installation_summary.add_environment_variables(
@@ -54,8 +63,7 @@ def __install(args):
         installation_summary.save(args.target_dir)
 
     except BuilderException as err:
-        __logger.error(str(err.message))
-        sys.exit(err.exit_code)
+        command_commons.manage_builder_exceptions(err)
 
 
 def register(subparsers):

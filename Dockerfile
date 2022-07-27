@@ -1,6 +1,5 @@
-FROM opensuse/leap:15
+FROM python:3.10.5-slim-bullseye
 
-RUN apt-get update && apt-get install -y python3 python3-pip
 
 ARG BUILDER_INSTALLATION=/tools
 ARG BUILDER_CUSTOM_CERTS=/tools/ssl
@@ -25,3 +24,4 @@ RUN pip3 install -r /tools/scripts/builder2/requirements.txt && \
     -d $BUILDER_INSTALLATION
 
 ENTRYPOINT ["/tools/scripts/entrypoint"]
+CMD ["/bin/bash"]

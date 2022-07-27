@@ -3,8 +3,16 @@
     "jdk-18": {
       "type": "jdk",
       "name": "jdk",
+      "add-to-path": true,
       "url": "https://corretto.aws/downloads/latest/amazon-corretto-18-x64-linux-jdk.tar.gz",
       "expected-hash": "https://corretto.aws/downloads/latest_checksum/amazon-corretto-18-x64-linux-jdk.tar.gz"
+    },
+    "mvn-3.8.6": {
+      "type": "maven",
+      "name": "maven",
+      "add-to-path": true,
+      "url": "https://dlcdn.apache.org/maven/maven-3/3.8.6/binaries/apache-maven-3.8.6-bin.tar.gz",
+      "expected-hash": "https://downloads.apache.org/maven/maven-3/3.8.6/binaries/apache-maven-3.8.6-bin.tar.gz.sha512"
     }
   }
 }

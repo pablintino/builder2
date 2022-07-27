@@ -4,7 +4,8 @@ from urllib.parse import urlparse
 
 import java_support
 from execution_parameters import ExecutionParameters
-from tool_installers import CopyOnlySourcesInstaller, JdkInstaller
+from models.metadata_models import JdkConfiguration
+from tool_installers import DownloadOnlySourcesInstaller, JdkInstaller
 
 
 @patch('builder2.tool_installers.file_utils.compute_file_sha1')
@@ -33,7 +34,7 @@ def test_basic_all_ok(tempfile_mock, copytree_mock, pathlib_path_mock, extract_f
 
     parameters = ExecutionParameters(core_count=1, file_name='/file-name', time_multiplier=1.0,
                                      target_dir='/target-dir')
-    with CopyOnlySourcesInstaller('test-tool', config, '/test', parameters) as installer:
+    with DownloadOnlySourcesInstaller('test-tool', config, parameters) as installer:
         result = installer.run_installation()
         assert result.success
         assert not result.error
@@ -50,22 +51,24 @@ def test_basic_all_ok(tempfile_mock, copytree_mock, pathlib_path_mock, extract_f
 
 
 @patch('builder2.tool_installers.java_support.get_jdk_wellknown_paths')
-@patch('builder2.tool_installers.file_utils.compute_file_sha1')
+@patch('builder2.tool_installers.crypto_utils.compute_file_sha1')
 @patch('builder2.tool_installers.file_utils.download_file')
 @patch('builder2.tool_installers.file_utils.extract_file')
-@patch('builder2.tool_installers.pathlib.Path')
 @patch('builder2.tool_installers.shutil.copytree')
 @patch('builder2.tool_installers.tempfile.TemporaryDirectory')
 @patch('builder2.tool_installers.file_utils.read_file_as_text')
 def test_jdk_basic(read_file_as_text_mock, tempfile_mock, copytree_mock, pathlib_path_mock,
                    extract_file_mock, download_file_mock, compute_file_sha1_mock, get_jdk_wellknown_paths_mock):
-    config = {
-        "group": "test-group",
-        "type": "download-only-compiler",
-        "name": "test-tool",
-        "version": "1.0.0",
-        "url": "https://test.test.com/test-file-v.0.0.tar.bz2"
-    }
+    config = JdkConfiguration(
+        name='test-tool',
+        url='https://test.test.com/test-file-v.0.0.tar.bz2',
+        default=False,
+        add_to_path=False,
+        expected_hash=None,
+        group='test-group',
+        version='1.0.0',
+        required_packages=[]
+    )
 
     # Make the temp file return a static path always
     tempfile_mock.return_value = tempfile_mock
@@ -89,20 +92,16 @@ def test_jdk_basic(read_file_as_text_mock, tempfile_mock, copytree_mock, pathlib
 
     parameters = ExecutionParameters(core_count=1, file_name='/file-name', time_multiplier=1.0,
                                      target_dir='/target-dir')
-    with JdkInstaller('test-tool', config, '/test', parameters) as installer:
-        result = installer.run_installation()
-        assert result.success
-        assert not result.error
-        assert result.installation
-        assert result.installation.wellknown_paths == get_jdk_wellknown_paths_mock.return_value
-        assert result.installation.package_hash == compute_file_sha1_mock.return_value
+    with JdkInstaller('test-tool', config, parameters) as installer:
+        installation = installer.run_installation()
+        assert installation.wellknown_paths == get_jdk_wellknown_paths_mock.return_value
+        assert installation.package_hash == compute_file_sha1_mock.return_value
 
     tarfile_target_path = os.path.join(
-        tempfile_mock.name, os.path.basename(urlparse(config['url']).path)
+        tempfile_mock.name, os.path.basename(urlparse(config.url).path)
     )
-    download_file_mock.assert_called_once_with(config['url'], tarfile_target_path)
+    download_file_mock.assert_called_once_with(config.url, tarfile_target_path)
     compute_file_sha1_mock.assert_called_once_with(tarfile_target_path)
     extract_file_mock.assert_called_once_with(tarfile_target_path, tempfile_mock.name)
-    pathlib_path_mock.assert_not_called()
-    copytree_mock.assert_called_once_with(tool_extract_path, os.path.join('/test', config["group"], 'test-tool'))
+    copytree_mock.assert_called_once_with(tool_extract_path, os.path.join('/test', config.group, 'test-tool'))
     cleanup_mock.assert_called_once()

@@ -6,6 +6,7 @@ import command_line
 import compilers_support
 import utils
 from exceptions import BuilderException
+from models.metadata_models import GccBuildConfiguration, ClangBuildConfiguration
 
 
 def __prepare_common_profile_file(component_installation, release_type):
@@ -77,8 +78,10 @@ def create_profiles_from_installation(installation_summary, target_dir):
     profile_vars = {}
     for component_key, component_installation in installation_summary.get_components().items():
 
-        create_profiles_flag = component_installation.configuration.get("conan-profile", False)
-        if create_profiles_flag and (component_installation.name == "clang" or component_installation.name == "gcc"):
+        is_gcc = isinstance(installation_summary, GccBuildConfiguration)
+        is_clang = isinstance(installation_summary, ClangBuildConfiguration)
+
+        if (is_gcc or is_clang) and installation_summary.conan_profile:
 
             conan_profiles_path = os.path.join(target_dir, 'conan', 'profiles')
             # Create conan profiles dir if not exists
@@ -86,7 +89,7 @@ def create_profiles_from_installation(installation_summary, target_dir):
 
             for release_type in ["Debug", "Release"]:
                 config_parser = __prepare_common_profile_file(component_installation, release_type)
-                if component_installation.name == "clang":
+                if is_clang:
                     config_parser = __prepare_clang_profile_file(component_installation, config_parser)
                 else:
                     config_parser = __prepare_gcc_profile_file(component_installation, config_parser)
@@ -101,8 +104,5 @@ def create_profiles_from_installation(installation_summary, target_dir):
                 profile_env_name = f"BUILDER_CONAN_PROFILE_{utils.replace_non_alphanumeric(component_key, '_')}" \
                                    f"_{release_type}".upper()
                 profile_vars[profile_env_name] = profile_path
-        elif create_profiles_flag:
-            raise BuilderException(
-                f'Cannot create conan profile for {component_key} component. Only clang and gcc are supported')
 
     return profile_vars

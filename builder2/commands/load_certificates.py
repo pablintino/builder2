@@ -1,5 +1,4 @@
 import logging
-import sys
 
 import certificate_manager
 import loggers
@@ -17,8 +16,7 @@ def __load_certificates(args):
         certificate_manager.install_all_certificates(installation_summary, args.certs_dir)
 
     except BuilderException as err:
-        __logger.error(str(err.message))
-        sys.exit(err.exit_code)
+        command_commons.manage_builder_exceptions(err)
 
 
 def register(subparsers):

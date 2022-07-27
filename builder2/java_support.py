@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import tempfile
+import zipfile
 from pathlib import Path
 
 from cryptography import x509
@@ -9,9 +10,13 @@ from cryptography.hazmat.primitives import serialization
 
 import command_line
 import file_utils
+from models.metadata_models import JdkConfiguration
 
 __logger = logging.getLogger()
 __DEFAULT_KEYSTORE_PASSWORD = 'changeit'
+
+__MANIFEST_VERSION_FIELD_REGEX = re.compile('Implementation-Version:\\s?([\\d.]*)')
+__JAVA_RELEASE_FILE_VERSION_REGEX = re.compile('JAVA_VERSION="([\\d.]*)"')
 
 DIR_NAME_JAVA_HOME = 'java_home'
 EXEC_NAME_JAVA = 'java'
@@ -73,16 +78,16 @@ def install_keystore_certificate(installation_summary, certificate, name=None):
                                      '-alias',
                                      name
                                  ] + keystore_opts)
-        __logger.debug('Certificate with CN %s installed in %s jdk', cn, installation_summary.key)
+        __logger.debug('Certificate with CN %s installed in JDK', cn, installation_summary.version)
 
 
 def install_jdk_certificates(installation_summary, certs):
-    for jdk_installation in installation_summary.get_components_by_type('jdk'):
-        __logger.debug('Installing certificates for %s jdk', jdk_installation.key)
+    for jdk_installation in installation_summary.get_components_by_type(JdkConfiguration):
+        __logger.debug('Installing certificates for JDK %s', jdk_installation.version)
         if EXEC_NAME_JAVA_CACERTS in jdk_installation.wellknown_paths:
             for cert in certs:
                 install_keystore_certificate(jdk_installation, cert)
-            __logger.info('Installed %d certificates in %s jdk', len(certs), jdk_installation.key)
+            __logger.info('Installed %d certificates in JDK %s', len(certs), jdk_installation.version)
         else:
             __logger.warning('Skipping java certificates installation as no cacerts path is present')
 
@@ -91,7 +96,7 @@ def get_jdk_version(target_dir):
     release_file = os.path.join(target_dir, 'release')
     if os.path.exists(release_file):
         release_content = file_utils.read_file_as_text(release_file)
-        version_match = re.search('JAVA_VERSION="([\\d.]*)"', release_content)
+        version_match = __JAVA_RELEASE_FILE_VERSION_REGEX.search(release_content)
         if version_match:
             return version_match.group(1)
 
@@ -100,5 +105,18 @@ def get_jdk_version(target_dir):
         version_file_content = file_utils.read_file_as_text(version_file).strip()
         if version_file_content:
             return version_file_content
+
+    return None
+
+
+def get_jar_manifest_content(jar_path):
+    with zipfile.ZipFile(jar_path, 'r') as zf:
+        return zf.read('META-INF/MANIFEST.MF').decode('utf-8')
+
+
+def get_version_from_jar_manifest(maven_jar_path):
+    version_match = __MANIFEST_VERSION_FIELD_REGEX.search(get_jar_manifest_content(maven_jar_path))
+    if version_match:
+        return version_match.group(1)
 
     return None

@@ -7,10 +7,10 @@ from exceptions import BuilderException
 
 __HASH_CHUNK_SIZE = 65536
 
-__md5_string_regex = re.compile('^[a-fA-F\d]{32}$')
-__sha1_string_regex = re.compile('^[a-fA-F\d]{40}$')
-__sha256_string_regex = re.compile('^[a-fA-F\d]{64}$')
-__sha512_string_regex = re.compile('^[a-fA-F\d]{128}$')
+__md5_string_regex = re.compile('^[a-fA-F\\d]{32}$')
+__sha1_string_regex = re.compile('^[a-fA-F\\d]{40}$')
+__sha256_string_regex = re.compile('^[a-fA-F\\d]{64}$')
+__sha512_string_regex = re.compile('^[a-fA-F\\d]{128}$')
 
 
 def __get_hash_algorithm_for_string(hash_str: str):
