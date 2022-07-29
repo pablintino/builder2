@@ -3,7 +3,7 @@ import os.path
 import pathlib
 
 import command_line
-import compilers_support
+import tooling_support.compilers_support
 import utils
 from exceptions import BuilderException
 from models.metadata_models import GccBuildConfiguration, ClangBuildConfiguration
@@ -37,10 +37,10 @@ def __prepare_common_profile_file(component_installation, release_type):
 
 
 def __prepare_clang_profile_file(component_installation, config_parser):
-    clang_path = component_installation.wellknown_paths.get(compilers_support.EXEC_NAME_CLANG_CC, None)
+    clang_path = component_installation.wellknown_paths.get(tooling_support.compilers_support.EXEC_NAME_CLANG_CC, None)
     if not clang_path:
         raise BuilderException('Cannot determine clang executable path to create conan profile')
-    clang_cpp_path = component_installation.wellknown_paths.get(compilers_support.EXEC_NAME_CLANG_CXX, None)
+    clang_cpp_path = component_installation.wellknown_paths.get(tooling_support.compilers_support.EXEC_NAME_CLANG_CXX, None)
     if not clang_cpp_path:
         raise BuilderException('Cannot determine clang++ executable path to create conan profile')
 
@@ -53,10 +53,10 @@ def __prepare_clang_profile_file(component_installation, config_parser):
 
 
 def __prepare_gcc_profile_file(component_installation, config_parser):
-    gcc_path = component_installation.wellknown_paths.get(compilers_support.EXEC_NAME_GCC_CC, None)
+    gcc_path = component_installation.wellknown_paths.get(tooling_support.compilers_support.EXEC_NAME_GCC_CC, None)
     if not gcc_path:
         raise BuilderException('Cannot determine gcc executable path to create conan profile')
-    gpp_path = component_installation.wellknown_paths.get(compilers_support.EXEC_NAME_GCC_CXX, None)
+    gpp_path = component_installation.wellknown_paths.get(tooling_support.compilers_support.EXEC_NAME_GCC_CXX, None)
     if not gpp_path:
         raise BuilderException('Cannot determine g++ executable path to create conan profile')
 

@@ -8,9 +8,9 @@ from installation_summary import InstallationSummary
 __logger = logging.getLogger()
 
 
-def get_installation_summary_from_args(args):
+def get_installation_summary_from_args(args, file_manager):
     try:
-        return InstallationSummary.from_path(args.summary_path)
+        return InstallationSummary.from_path(args.summary_path, file_manager)
     except FileNotFoundError as err:
         raise BuilderException(err) from err
 

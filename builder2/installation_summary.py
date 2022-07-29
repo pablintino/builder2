@@ -1,24 +1,21 @@
-import json
 import logging
 import os
-import pathlib
 
 import marshmallow.exceptions
 
-import file_utils
 from exceptions import BuilderException, BuilderValidationException
-from file_utils import EnhancedJSONEncoder
 from models.installation_models import ComponentInstallationModel, InstallationSummarySchema, InstallationSummaryModel, \
     InstallationEnvironmentModel
 
 
 class InstallationSummary:
-    SUMMARY_FILE_NAME = '.toolchain-installation-summary.json'
+    __SUMMARY_FILE_NAME = '.toolchain-installation-summary.json'
     __logger = logging.getLogger(__name__)
 
-    def __init__(self, installation_path: str = None, summary: InstallationSummaryModel = None):
+    def __init__(self, file_manager, installation_path: str = None, summary: InstallationSummaryModel = None):
         if not installation_path and not summary:
             raise BuilderException('One of both summary or installation path must be given')
+        self._file_manager = file_manager
 
         self.__components = {}
         self.__system_packages = []
@@ -33,28 +30,28 @@ class InstallationSummary:
             self.__environment_vars = summary.environment.variables
 
     @classmethod
-    def from_path(cls, path):
+    def from_path(cls, path: str, file_manager):
         cls.__logger.info('Loading installation summary from %s', path)
-        summary_path = pathlib.Path(path)
-        summary_path = summary_path.joinpath(
-            InstallationSummary.SUMMARY_FILE_NAME) if summary_path.is_dir() else summary_path
+        summary_path = path if path.endswith(cls.__SUMMARY_FILE_NAME) else os.path.join(path,
+                                                                                        cls.__SUMMARY_FILE_NAME)
         try:
-            return cls(summary=InstallationSummarySchema().load(data=file_utils.read_json_file(summary_path)))
+            return cls(file_manager,
+                       summary=InstallationSummarySchema().load(data=file_manager.read_json_file(summary_path)))
         except marshmallow.exceptions.ValidationError as err:
             raise BuilderValidationException(f'Validation issues in toolchain installation summary from {summary_path}',
                                              err.messages_dict)
 
     def save(self, target_dir):
-        file_name = os.path.join(target_dir, InstallationSummary.SUMMARY_FILE_NAME)
+        file_name = os.path.join(target_dir, self.__SUMMARY_FILE_NAME)
         self.__logger.info('Saving installation summary to %s', file_name)
-        os.makedirs(target_dir, exist_ok=True)
+        self._file_manager.create_file_tree(target_dir)
 
         inventory = InstallationSummarySchema().dump(
             InstallationSummaryModel(installation_path=self.__installation_path, components=self.__components,
                                      environment=InstallationEnvironmentModel(variables=self.__environment_vars),
                                      system_packages=self.__system_packages))
-        with open(file_name, "w") as f:
-            json.dump(inventory, f, indent=2, cls=EnhancedJSONEncoder)
+
+        self._file_manager.write_as_json(file_name, inventory)
 
     def add_component(self, tool_key: str, tool_summary: ComponentInstallationModel):
         self.__components[tool_key] = tool_summary

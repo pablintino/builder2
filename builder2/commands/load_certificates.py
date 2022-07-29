@@ -1,7 +1,10 @@
 import logging
 
-import certificate_manager
+import command_line
+import file_utils
+import tooling_support.java_support
 import loggers
+from certificate_manager import CertificateManager
 from commands import command_commons
 from exceptions import BuilderException
 
@@ -11,8 +14,11 @@ __logger = logging.getLogger()
 def __load_certificates(args):
     try:
         loggers.configure()
-
-        installation_summary = command_commons.get_installation_summary_from_args(args)
+        file_manager = file_utils.FileManager()
+        command_runner = command_line.CommandRunner()
+        java_tools = tooling_support.java_support.JavaTools(file_manager, command_runner)
+        certificate_manager = CertificateManager(file_manager, java_tools, command_runner)
+        installation_summary = command_commons.get_installation_summary_from_args(args, file_manager)
         certificate_manager.install_all_certificates(installation_summary, args.certs_dir)
 
     except BuilderException as err:
