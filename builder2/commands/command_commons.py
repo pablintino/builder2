@@ -16,9 +16,14 @@ def get_installation_summary_from_args(args, file_manager):
 
 
 def register_installation_summary_arg_option(command_parser):
-    command_parser.add_argument('-i', '--installation-summary', dest='summary_path',
-                                help='Path to the installation summary descriptor file or installation directory',
-                                env_var='BUILDER_INSTALLATION', required=True)
+    command_parser.add_argument(
+        "-i",
+        "--installation-summary",
+        dest="summary_path",
+        help="Path to the installation summary descriptor file or installation directory",
+        env_var="BUILDER_INSTALLATION",
+        required=True,
+    )
 
 
 def manage_builder_exceptions(exception):

@@ -28,21 +28,23 @@ class ToolInstaller(metaclass=abc.ABCMeta):
         self._component_env_vars = {}
         self._path_directories = []
 
-        self._file_manager = kwargs.get('file_manager')
-        self._cryptographic_provider = kwargs.get('cryptographic_provider')
-        self._command_runner = kwargs.get('command_runner')
-        self._package_manager = kwargs.get('package_manager')
-        self._core_count = kwargs.get('core_count', 10)
-        self._time_multiplier = kwargs.get('time_multiplier', 100) / 100.0
+        self._file_manager = kwargs.get("file_manager")
+        self._cryptographic_provider = kwargs.get("cryptographic_provider")
+        self._command_runner = kwargs.get("command_runner")
+        self._package_manager = kwargs.get("package_manager")
+        self._core_count = kwargs.get("core_count", 10)
+        self._time_multiplier = kwargs.get("time_multiplier", 100) / 100.0
         self._logger = logging.getLogger(self.__class__.__name__)
 
         # If tool is in a group install in their directory
         if self._config.group:
-            self._target_dir = os.path.join(self._installation_base, self._config.group, self.tool_key)
+            self._target_dir = os.path.join(
+                self._installation_base, self._config.group, self.tool_key
+            )
         else:
             self._target_dir = os.path.join(self._installation_base, self.tool_key)
 
-        if kwargs.get('create_target', True) and not os.path.exists(self._target_dir):
+        if kwargs.get("create_target", True) and not os.path.exists(self._target_dir):
             self._file_manager.create_file_tree(self._target_dir)
 
     def __enter__(self):
@@ -63,7 +65,7 @@ class ToolInstaller(metaclass=abc.ABCMeta):
             configuration=self._config,
             wellknown_paths=self._wellknown_paths,
             environment_vars=self._component_env_vars,
-            path_dirs=self._path_directories if self._config.add_to_path else []
+            path_dirs=self._path_directories if self._config.add_to_path else [],
         )
 
     def _compute_tool_version(self):
@@ -81,10 +83,16 @@ class ToolInstaller(metaclass=abc.ABCMeta):
         self._file_manager.download_file(self._config.url, sources_tar_path)
 
         if self._config.expected_hash:
-            self._cryptographic_provider.validate_file_hash(sources_tar_path, self._config.expected_hash)
+            self._cryptographic_provider.validate_file_hash(
+                sources_tar_path, self._config.expected_hash
+            )
 
-        self._sources_dir = self._file_manager.extract_file(sources_tar_path, self._temp_dir.name)
-        self._package_hash = self._cryptographic_provider.compute_file_sha1(sources_tar_path)
+        self._sources_dir = self._file_manager.extract_file(
+            sources_tar_path, self._temp_dir.name
+        )
+        self._package_hash = self._cryptographic_provider.compute_file_sha1(
+            sources_tar_path
+        )
 
     def _acquire_packages(self):
         self._package_manager.install_packages(self._config.required_packages)
@@ -99,7 +107,7 @@ class ToolInstaller(metaclass=abc.ABCMeta):
 
     def _compute_path_directories(self):
         # Adds /bin if exists
-        bin_path = pathlib.Path(self._target_dir).joinpath('bin')
+        bin_path = pathlib.Path(self._target_dir).joinpath("bin")
         if bin_path.exists() and bin_path.is_dir():
             self._path_directories.append(str(bin_path.absolute()))
 
@@ -109,12 +117,11 @@ class ToolInstaller(metaclass=abc.ABCMeta):
 
 
 class ToolSourceInstaller(ToolInstaller):
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._build_dir = None
-        self._in_source_build = kwargs.get('in_source_build', False)
-        self._timeouts = kwargs.get('timeouts', (300, 900, 300))
+        self._in_source_build = kwargs.get("in_source_build", False)
+        self._timeouts = kwargs.get("timeouts", (300, 900, 300))
 
     def _create_config_cmd(self):
         return [
@@ -139,8 +146,9 @@ class ToolSourceInstaller(ToolInstaller):
         self._command_runner.run_process(
             cmd,
             cwd=self._sources_dir if not cwd else cwd,
-            timeout=utils.get_command_timeout(timeout if timeout else self._timeouts[0],
-                                              self._time_multiplier),
+            timeout=utils.get_command_timeout(
+                timeout if timeout else self._timeouts[0], self._time_multiplier
+            ),
             # If command is a string (typical cmake cases as it has problems detecting -D opts) use shell mode
             shell=shell or (isinstance(cmd, str) and shell is None),
         )
@@ -150,8 +158,9 @@ class ToolSourceInstaller(ToolInstaller):
         self._command_runner.run_process(
             self._create_build_cmd(),
             cwd=self._sources_dir if not cwd else cwd,
-            timeout=utils.get_command_timeout(timeout if timeout else self._timeouts[1],
-                                              self._time_multiplier),
+            timeout=utils.get_command_timeout(
+                timeout if timeout else self._timeouts[1], self._time_multiplier
+            ),
             shell=shell,
         )
 
@@ -160,8 +169,9 @@ class ToolSourceInstaller(ToolInstaller):
         self._command_runner.run_process(
             self._create_install_cmd(),
             cwd=self._sources_dir if not cwd else cwd,
-            timeout=utils.get_command_timeout(timeout if timeout else self._timeouts[2],
-                                              self._time_multiplier),
+            timeout=utils.get_command_timeout(
+                timeout if timeout else self._timeouts[2], self._time_multiplier
+            ),
             shell=shell,
         )
 
@@ -186,10 +196,13 @@ class CMakeSourcesInstaller(ToolSourceInstaller):
     __VERSION_REGEX = re.compile(r'CMake_VERSION\s"([a-zA-Z\d.]*)"')
 
     def _compute_tool_version(self):
-        version_files = self._file_manager.search_get_files_by_pattern(self._sources_dir, ['**/cmVersionConfig.h'])
+        version_files = self._file_manager.search_get_files_by_pattern(
+            self._sources_dir, ["**/cmVersionConfig.h"]
+        )
         if version_files:
-            self._version = self._file_manager.read_file_and_search_group(version_files[0], self.__VERSION_REGEX,
-                                                                          ignore_failure=True)
+            self._version = self._file_manager.read_file_and_search_group(
+                version_files[0], self.__VERSION_REGEX, ignore_failure=True
+            )
 
         if not self._version:
             super()._compute_tool_version()
@@ -203,9 +216,10 @@ class CMakeSourcesInstaller(ToolSourceInstaller):
 
 
 class GccSourcesInstaller(ToolSourceInstaller):
-
     def __init__(self, *args, compilers_support: CompilersSupport = None, **kwargs):
-        super().__init__(*args, in_source_build=True, timeouts=(300, 2000, 300), **kwargs)
+        super().__init__(
+            *args, in_source_build=True, timeouts=(300, 2000, 300), **kwargs
+        )
         self._compilers_support = compilers_support
 
     def __get_gcc_source_version(self):
@@ -273,11 +287,14 @@ class GccSourcesInstaller(ToolSourceInstaller):
     def _create_component_installation(self):
         base_summary = super()._create_component_installation()
         target_triplet = self._command_runner.run_process(
-            [self._wellknown_paths[EXEC_NAME_GCC_CC], '-dumpmachine']).strip()
+            [self._wellknown_paths[EXEC_NAME_GCC_CC], "-dumpmachine"]
+        ).strip()
         return dataclasses.replace(base_summary, triplet=target_triplet)
 
     def _compute_wellknown_paths(self):
-        self._wellknown_paths.update(self._compilers_support.get_gcc_wellknown_paths(self._target_dir))
+        self._wellknown_paths.update(
+            self._compilers_support.get_gcc_wellknown_paths(self._target_dir)
+        )
 
     def _configure_pre_hook(self):
         # Download required libs before start configuration
@@ -287,10 +304,14 @@ class GccSourcesInstaller(ToolSourceInstaller):
 
 
 class ClangSourcesInstaller(ToolSourceInstaller):
-    __CMAKE_FILE_PATTERN = re.compile(r'CMAKE_PROJECT_VERSION:[a-zA-Z\d]*=([a-zA-Z\d.]*)', re.IGNORECASE)
+    __CMAKE_FILE_PATTERN = re.compile(
+        r"CMAKE_PROJECT_VERSION:[a-zA-Z\d]*=([a-zA-Z\d.]*)", re.IGNORECASE
+    )
 
     def __init__(self, *args, compilers_support: CompilersSupport = None, **kwargs):
-        super().__init__(*args, in_source_build=True, timeouts=(300, 3400, 300), **kwargs)
+        super().__init__(
+            *args, in_source_build=True, timeouts=(300, 3400, 300), **kwargs
+        )
         self._compilers_support = compilers_support
 
     def __get_clang_custom_build_opts(self):
@@ -321,7 +342,9 @@ class ClangSourcesInstaller(ToolSourceInstaller):
 
         if self._config.runtimes:
             llvm_runtimes = ";".join(map(str, self._config.runtimes))
-            self._logger.info("Clang/LLVM configured with this runtimes: %s", llvm_runtimes)
+            self._logger.info(
+                "Clang/LLVM configured with this runtimes: %s", llvm_runtimes
+            )
             opts.append(f'-DLLVM_ENABLE_RUNTIMES="{llvm_runtimes}"')
 
         opts.extend(self.__get_clang_custom_build_opts())
@@ -338,9 +361,10 @@ class ClangSourcesInstaller(ToolSourceInstaller):
         return ["ninja", "install"]
 
     def _compute_tool_version(self):
-        cmake_cache = os.path.join(self._temp_dir.name, 'build/CMakeCache.txt')
-        self._version = self._file_manager.read_file_and_search_group(cmake_cache, self.__CMAKE_FILE_PATTERN,
-                                                                      ignore_failure=True)
+        cmake_cache = os.path.join(self._temp_dir.name, "build/CMakeCache.txt")
+        self._version = self._file_manager.read_file_and_search_group(
+            cmake_cache, self.__CMAKE_FILE_PATTERN, ignore_failure=True
+        )
 
         if not self._version:
             super()._compute_tool_version()
@@ -354,26 +378,37 @@ class ClangSourcesInstaller(ToolSourceInstaller):
         if clang_bin_path:
             return dataclasses.replace(
                 base_summary,
-                triplet=self._compilers_support.get_compiler_triplet(clang_bin_path)
+                triplet=self._compilers_support.get_compiler_triplet(clang_bin_path),
             )
         else:
             return base_summary
 
     def _compute_wellknown_paths(self):
-        self._wellknown_paths.update(self._compilers_support.get_clang_wellknown_paths(self._target_dir))
+        self._wellknown_paths.update(
+            self._compilers_support.get_clang_wellknown_paths(self._target_dir)
+        )
 
 
 class CppCheckSourcesInstaller(ToolSourceInstaller):
-    __VERSION_FILE_PATTERN = re.compile(r'SET\(VERSION\s?"([a-zA-Z\d.]*)"\)', re.IGNORECASE)
-    __CMAKE_FILE_PATTERN = re.compile(r'^CMAKE_PROJECT_VERSION:[a-zA-Z\d]*=([a-zA-Z\d.]*)$', re.IGNORECASE)
+    __VERSION_FILE_PATTERN = re.compile(
+        r'SET\(VERSION\s?"([a-zA-Z\d.]*)"\)', re.IGNORECASE
+    )
+    __CMAKE_FILE_PATTERN = re.compile(
+        r"^CMAKE_PROJECT_VERSION:[a-zA-Z\d]*=([a-zA-Z\d.]*)$", re.IGNORECASE
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
     def _create_config_cmd(self):
-        command = ["cmake", self._sources_dir, "-G", "Ninja", "-DCMAKE_BUILD_TYPE=Release",
-                   f'-DCMAKE_INSTALL_PREFIX="{self._target_dir}"',
-                   ]
+        command = [
+            "cmake",
+            self._sources_dir,
+            "-G",
+            "Ninja",
+            "-DCMAKE_BUILD_TYPE=Release",
+            f'-DCMAKE_INSTALL_PREFIX="{self._target_dir}"',
+        ]
 
         if self._config.compile_rules:
             command.append("-DHAVE_RULES=True")
@@ -389,12 +424,14 @@ class CppCheckSourcesInstaller(ToolSourceInstaller):
 
     def _compute_tool_version(self):
         cmake_versions_file = os.path.join(self._sources_dir, "cmake", "versions.cmake")
-        self._version = self._file_manager.read_file_and_search_group(cmake_versions_file, self.__VERSION_FILE_PATTERN,
-                                                                      ignore_failure=True)
+        self._version = self._file_manager.read_file_and_search_group(
+            cmake_versions_file, self.__VERSION_FILE_PATTERN, ignore_failure=True
+        )
         if not self._version:
             cmake_cache = os.path.join(self._sources_dir, "CMakeCache.txt")
-            self._version = self._file_manager.read_file_and_search_group(cmake_cache, self.__CMAKE_FILE_PATTERN,
-                                                                          ignore_failure=True)
+            self._version = self._file_manager.read_file_and_search_group(
+                cmake_cache, self.__CMAKE_FILE_PATTERN, ignore_failure=True
+            )
 
         if not self._version:
             super()._compute_tool_version()
@@ -406,12 +443,13 @@ class CppCheckSourcesInstaller(ToolSourceInstaller):
 
 
 class ValgrindSourcesInstaller(ToolSourceInstaller):
-    __SPEC_FILE__PATTERN = re.compile(r'Version:\s?([a-zA-Z\d.]*)', re.IGNORECASE)
+    __SPEC_FILE__PATTERN = re.compile(r"Version:\s?([a-zA-Z\d.]*)", re.IGNORECASE)
 
     def _compute_tool_version(self):
         spec_file = os.path.join(self._sources_dir, "valgrind.spec")
-        self._version = self._file_manager.read_file_and_search_group(spec_file, self.__SPEC_FILE__PATTERN,
-                                                                      ignore_failure=True)
+        self._version = self._file_manager.read_file_and_search_group(
+            spec_file, self.__SPEC_FILE__PATTERN, ignore_failure=True
+        )
 
         if not self._version:
             super()._compute_tool_version()
@@ -435,7 +473,6 @@ class DownloadOnlySourcesInstaller(ToolInstaller):
 
 
 class DownloadOnlyCompilerInstaller(DownloadOnlySourcesInstaller):
-
     def __init__(self, *args, compilers_support: CompilersSupport = None, **kwargs):
         super().__init__(*args, **kwargs)
         self._compilers_support = compilers_support
@@ -451,7 +488,9 @@ class DownloadOnlyCompilerInstaller(DownloadOnlySourcesInstaller):
     def _compute_tool_version(self):
         binary = self.__get_binary_path()
         if binary:
-            self._version = self._command_runner.run_process([binary, '-dumpversion']).strip()
+            self._version = self._command_runner.run_process(
+                [binary, "-dumpversion"]
+            ).strip()
 
         if not self._version:
             super()._compute_tool_version()
@@ -460,13 +499,22 @@ class DownloadOnlyCompilerInstaller(DownloadOnlySourcesInstaller):
         base_summary = super()._create_component_installation()
 
         binary = self.__get_binary_path()
-        return dataclasses.replace(base_summary,
-                                   triplet=self._compilers_support.get_compiler_triplet(
-                                       binary)) if binary else base_summary
+        return (
+            dataclasses.replace(
+                base_summary,
+                triplet=self._compilers_support.get_compiler_triplet(binary),
+            )
+            if binary
+            else base_summary
+        )
 
     def _compute_wellknown_paths(self):
-        self._wellknown_paths.update(self._compilers_support.get_gcc_wellknown_paths(self._target_dir))
-        self._wellknown_paths.update(self._compilers_support.get_clang_wellknown_paths(self._target_dir))
+        self._wellknown_paths.update(
+            self._compilers_support.get_gcc_wellknown_paths(self._target_dir)
+        )
+        self._wellknown_paths.update(
+            self._compilers_support.get_clang_wellknown_paths(self._target_dir)
+        )
 
 
 class JdkInstaller(DownloadOnlySourcesInstaller):
@@ -478,12 +526,15 @@ class JdkInstaller(DownloadOnlySourcesInstaller):
 
     def _compute_tool_version(self):
         # Try get version from jdk files
-        self._version = self._file_manager.read_file_and_search_group(os.path.join(self._target_dir, 'release'),
-                                                                      self.__JAVA_RELEASE_FILE_VERSION_REGEX,
-                                                                      ignore_failure=True)
+        self._version = self._file_manager.read_file_and_search_group(
+            os.path.join(self._target_dir, "release"),
+            self.__JAVA_RELEASE_FILE_VERSION_REGEX,
+            ignore_failure=True,
+        )
         if not self._version:
-            version_file_content = self._file_manager.read_file_as_text(os.path.join(self._target_dir, 'version.txt'),
-                                                                        ignore_failure=True)
+            version_file_content = self._file_manager.read_file_as_text(
+                os.path.join(self._target_dir, "version.txt"), ignore_failure=True
+            )
             if version_file_content:
                 self._version = version_file_content.strip()
 
@@ -491,23 +542,29 @@ class JdkInstaller(DownloadOnlySourcesInstaller):
             super()._compute_tool_version()
 
     def _compute_wellknown_paths(self):
-        self._wellknown_paths.update(self._java_tools.get_jdk_wellknown_paths(self._target_dir))
+        self._wellknown_paths.update(
+            self._java_tools.get_jdk_wellknown_paths(self._target_dir)
+        )
 
     def _compute_component_env_vars(self):
         if self._config.default and DIR_NAME_JAVA_HOME in self._wellknown_paths:
-            self._component_env_vars['JAVA_HOME'] = self._wellknown_paths[DIR_NAME_JAVA_HOME]
+            self._component_env_vars["JAVA_HOME"] = self._wellknown_paths[
+                DIR_NAME_JAVA_HOME
+            ]
 
 
 class MavenInstaller(DownloadOnlySourcesInstaller):
-    __VERSION_REGEX = re.compile(r'Implementation-Version:\s?([\d.]*)')
+    __VERSION_REGEX = re.compile(r"Implementation-Version:\s?([\d.]*)")
 
     def _compute_tool_version(self):
 
-        files = self._file_manager.search_get_files_by_pattern(self._target_dir, ['lib/maven-artifact-*.jar'],
-                                                               recursive=False)
+        files = self._file_manager.search_get_files_by_pattern(
+            self._target_dir, ["lib/maven-artifact-*.jar"], recursive=False
+        )
         if files:
-            manifest_content = self._file_manager.read_text_file_from_zip(files[0], 'META-INF/MANIFEST.MF',
-                                                                          ignore_failure=True)
+            manifest_content = self._file_manager.read_text_file_from_zip(
+                files[0], "META-INF/MANIFEST.MF", ignore_failure=True
+            )
             if manifest_content:
                 match = self.__VERSION_REGEX.search(manifest_content)
                 self._version = match.group(1) if match else None

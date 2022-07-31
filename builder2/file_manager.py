@@ -33,9 +33,16 @@ class FileManager:
 
         def read(self, size):
             pos = self.tell()
-            if self.__count != pos and (pos - self.__last_report) > 0.2 * self._total_size:
+            if (
+                self.__count != pos
+                and (pos - self.__last_report) > 0.2 * self._total_size
+            ):
                 self.__last_report = pos
-                self.__logger.info('Extracting %s ... (%d %%)', self.name, int((pos / self._total_size) * 100))
+                self.__logger.info(
+                    "Extracting %s ... (%d %%)",
+                    self.name,
+                    int((pos / self._total_size) * 100),
+                )
             self.__count = pos
             return io.FileIO.read(self, size)
 
@@ -49,9 +56,9 @@ class FileManager:
         self._logger.info("Fetching %s", url)
         try:
             with urllib.request.urlopen(url) as f:
-                return f.read().decode('utf-8')
+                return f.read().decode("utf-8")
         except urllib.error.URLError as e:
-            raise BuilderException(f'Error fetching {url}') from e
+            raise BuilderException(f"Error fetching {url}") from e
 
     def extract_file(self, file, target):
         self._logger.info("Start extraction of %s", file)
@@ -74,13 +81,13 @@ class FileManager:
 
     @staticmethod
     def read_file_as_bytes(path: str):
-        with open(path, 'rb') as file:
+        with open(path, "rb") as file:
             return file.read()
 
     @classmethod
     def read_file_as_text(cls, path: str, ignore_failure=False):
         try:
-            with open(path, 'r') as file:
+            with open(path, "r") as file:
                 return file.read()
         except FileNotFoundError as err:
             if not ignore_failure:
@@ -92,13 +99,15 @@ class FileManager:
         return regex.search(cls.read_file_as_text(path, ignore_failure=ignore_failure))
 
     @classmethod
-    def read_file_and_search_group(cls, path: str, regex, ignore_failure=False, group=1):
+    def read_file_and_search_group(
+        cls, path: str, regex, ignore_failure=False, group=1
+    ):
         search = cls.read_file_and_search(path, regex, ignore_failure=ignore_failure)
         return search.group(group) if search else None
 
     @staticmethod
     def write_text_file(path: str, content):
-        with open(path, 'w') as file:
+        with open(path, "w") as file:
             return file.write(content)
 
     @classmethod
@@ -108,14 +117,14 @@ class FileManager:
 
     @staticmethod
     def write_binary_file(path, content: bytes):
-        with open(path, 'wb') as file:
+        with open(path, "wb") as file:
             return file.write(content)
 
     @staticmethod
     def read_text_file_from_zip(path: str, file_path: str, ignore_failure=False):
         try:
-            with zipfile.ZipFile(path, 'r') as zf:
-                return zf.read(file_path).decode('utf-8')
+            with zipfile.ZipFile(path, "r") as zf:
+                return zf.read(file_path).decode("utf-8")
         except FileNotFoundError as err:
             if not ignore_failure:
                 raise err
@@ -127,20 +136,26 @@ class FileManager:
             with open(path) as f:
                 return json.load(f)
         except FileNotFoundError as err:
-            raise BuilderException(f'Cannot read json file {path}') from err
+            raise BuilderException(f"Cannot read json file {path}") from err
 
     @staticmethod
-    def search_get_files_by_pattern(path: str, patterns: list, recursive: bool = False) -> list[pathlib.Path]:
+    def search_get_files_by_pattern(
+        path: str, patterns: list, recursive: bool = False
+    ) -> list[pathlib.Path]:
         search_path = pathlib.Path(path)
         if not search_path.exists():
-            raise BuilderException(f'Search path {path} doesn\'t exist', exit_code=2)
+            raise BuilderException(f"Search path {path} doesn't exist", exit_code=2)
 
         if not search_path.is_dir():
-            raise BuilderException(f'Search path {path} is not a proper directory')
+            raise BuilderException(f"Search path {path} is not a proper directory")
 
         files = []
         for pattern in patterns:
-            files.extend(search_path.glob(pattern) if not recursive else search_path.rglob(pattern))
+            files.extend(
+                search_path.glob(pattern)
+                if not recursive
+                else search_path.rglob(pattern)
+            )
         return files
 
     def download_file(self, url, dst_file):
@@ -154,10 +169,16 @@ class FileManager:
                 received = received + file.write(data)
                 if total != 0 and (received - last_print) > 0.2 * total:
                     last_print = received
-                    self._logger.info('Downloading %s ... (%d %%)', url, int((received / total) * 100))
+                    self._logger.info(
+                        "Downloading %s ... (%d %%)", url, int((received / total) * 100)
+                    )
 
         # Don't use total as size as it can be zero
-        self._logger.info("Finished download of %s. Size %s", url, self.__sizeof_fmt(os.path.getsize(dst_file)))
+        self._logger.info(
+            "Finished download of %s. Size %s",
+            url,
+            self.__sizeof_fmt(os.path.getsize(dst_file)),
+        )
 
     # From https://stackoverflow.com/questions/1094841/get-human-readable-version-of-file-size
     @staticmethod
