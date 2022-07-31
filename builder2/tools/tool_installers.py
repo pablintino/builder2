@@ -8,8 +8,12 @@ import tempfile
 from urllib.parse import urlparse
 
 import utils
+from command_line import CommandRunner
+from cryptographic_provider import CryptographicProvider
 from exceptions import BuilderException
+from file_manager import FileManager
 from models.installation_models import ComponentInstallationModel
+from package_manager import PackageManager
 from tools import CompilersSupport, JavaTools
 from tools.compilers_support import EXEC_NAME_GCC_CC, EXEC_NAME_CLANG_CC
 from tools.java_support import DIR_NAME_JAVA_HOME
@@ -28,12 +32,12 @@ class ToolInstaller(metaclass=abc.ABCMeta):
         self._component_env_vars = {}
         self._path_directories = []
 
-        self._file_manager = kwargs.get("file_manager")
-        self._cryptographic_provider = kwargs.get("cryptographic_provider")
-        self._command_runner = kwargs.get("command_runner")
-        self._package_manager = kwargs.get("package_manager")
-        self._core_count = kwargs.get("core_count", 10)
-        self._time_multiplier = kwargs.get("time_multiplier", 100) / 100.0
+        self._file_manager: FileManager = kwargs.get("file_manager")
+        self._cryptographic_provider: CryptographicProvider = kwargs.get("cryptographic_provider")
+        self._command_runner: CommandRunner = kwargs.get("command_runner")
+        self._package_manager: PackageManager = kwargs.get("package_manager")
+        self._core_count: int = kwargs.get("core_count", 10)
+        self._time_multiplier: float = kwargs.get("time_multiplier", 100) / 100.0
         self._logger = logging.getLogger(self.__class__.__name__)
 
         # If tool is in a group install in their directory
@@ -140,7 +144,7 @@ class ToolSourceInstaller(ToolInstaller):
         cwd = directory
         if self._in_source_build:
             self._build_dir = build_path = os.path.join(self._temp_dir.name, "build")
-            os.mkdir(build_path)
+            self._file_manager.create_file_tree(build_path)
             cwd = self._build_dir
 
         self._command_runner.run_process(

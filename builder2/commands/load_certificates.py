@@ -9,7 +9,7 @@ from certificate_manager import CertificateManager
 from commands import command_commons
 from exceptions import BuilderException
 
-__logger = logging.getLogger()
+__logger = logging.getLogger(__name__)
 
 
 @inject

@@ -15,7 +15,7 @@ from installation_summary import InstallationSummary
 from models.metadata_models import ToolchainMetadataSchema
 from conan_manager import ConanManager
 
-__logger = logging.getLogger()
+__logger = logging.getLogger(__name__)
 
 
 def __load_toolchain_metadata(path, file_manager):

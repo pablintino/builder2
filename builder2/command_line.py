@@ -83,3 +83,16 @@ class CommandRunner:
                 command_list,
                 (time.time() - start_time),
             )
+
+    def exec_command(self, command: list[str], env: dict[str, str]):
+        try:
+            os.execvpe(command[0], command, env)
+        except OSError as err:
+            # If failed to execute (command not found, no permissions, etc.) get the errno and set it as return code
+            self._logger.debug(
+                "Program %s exited with code %d",
+                command[0],
+                int(err.errno),
+                exc_info=err,
+            )
+            raise err

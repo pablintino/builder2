@@ -10,11 +10,12 @@ from dependency_injector.wiring import inject, Provide
 import di
 import loggers
 from certificate_manager import CertificateManager
+from command_line import CommandRunner
 from commands import command_commons
 from exceptions import BuilderException
 from file_manager import FileManager
 
-__logger = logging.getLogger()
+__logger = logging.getLogger(__name__)
 
 __FALLBACK_SHELLS = ["/bin/bash, /bin/sh"]
 
@@ -36,7 +37,7 @@ def __get_user_shell():
         if pwddb.pw_shell:
             return pwddb.pw_shell
     except KeyError:
-        # Do nothing, defaults as shell value
+        # Do nothing
         pass
     return None
 
@@ -50,22 +51,6 @@ def __get_default_shell():
         sys.exit(2)
 
     return shell
-
-
-def __exec_command(bootstrap_args: list, env: dict):
-    if bootstrap_args:
-        # If command was launched with arguments use them
-        command = bootstrap_args
-    else:
-        # If not, just try to get the default shell and launch it
-        command = [__get_default_shell()]
-
-    try:
-        os.execvpe(command[0], command, env)
-    except OSError as err:
-        # If failed to execute (command not found, no permissions, etc.) get the errno and set it as return code
-        __logger.debug("Program exited with code %d", int(err.errno), exc_info=err)
-        sys.exit(err.errno)
 
 
 def __get_path_value(installation_summary):
@@ -90,13 +75,16 @@ def __get_env_vars(installation_summary):
     return variables
 
 
-def __filter_command_args(args):
+def __prepare_command(args):
     bootstrap_cmd = args.remainder
     if len(bootstrap_cmd) > 0 and bootstrap_cmd[0] == "--":
         bootstrap_cmd = bootstrap_cmd[1:]
     if len(bootstrap_cmd) > 0 and bootstrap_cmd[0] == "":
         bootstrap_cmd = bootstrap_cmd[1:]
-    return bootstrap_cmd
+
+    # If command was launched with arguments use them
+    # If not, just try to get the default shell and launch it
+    return bootstrap_cmd if bootstrap_cmd else [__get_default_shell()]
 
 
 @inject
@@ -104,6 +92,7 @@ def __bootstrap(
     args,
     file_manager: FileManager = Provide[di.Container.file_manager],
     certificate_manager: CertificateManager = Provide[di.Container.certificate_manager],
+    command_runner: CommandRunner = Provide[di.Container.command_runner],
 ):
     try:
         loggers.configure("INFO" if args.output else "ERROR")
@@ -122,10 +111,11 @@ def __bootstrap(
                 "Skipping loading certificates. %s does not exist", args.certs_dir
             )
 
-        bootstrap_cmd = __filter_command_args(args)
+        bootstrap_cmd = __prepare_command(args)
         env_vars = __get_env_vars(installation_summary)
-        __exec_command(bootstrap_cmd, env_vars)
-
+        command_runner.exec_command(bootstrap_cmd, env_vars)
+    except OSError as err:
+        sys.exit(err.errno)
     except BuilderException as err:
         command_commons.manage_builder_exceptions(err)
 
