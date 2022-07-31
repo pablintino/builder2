@@ -40,7 +40,8 @@ class CommandRunner:
     def __init__(self):
         self._logger = logging.getLogger(self.__class__.__name__)
 
-    def run_process(self, command_list, cwd=None, timeout=180, shell=False, silent=False):
+    def run_process(self, command_list: list[str], cwd: str = None, timeout=180, shell: bool = False,
+                    silent: bool = False):
         working_dir = os.getcwd() if not cwd else cwd
         start_time = time.time()
         try:

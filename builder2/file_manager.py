@@ -7,6 +7,7 @@ import pathlib
 import shutil
 import tarfile
 import urllib
+import zipfile
 
 import requests
 
@@ -76,15 +77,24 @@ class FileManager:
         with open(path, 'rb') as file:
             return file.read()
 
-    @staticmethod
-    def read_file_as_text(path: str):
-        with open(path, 'r') as file:
-            return file.read()
+    @classmethod
+    def read_file_as_text(cls, path: str, ignore_failure=False):
+        try:
+            with open(path, 'r') as file:
+                return file.read()
+        except FileNotFoundError as err:
+            if not ignore_failure:
+                raise err
+        return None
 
-    @staticmethod
-    def read_file_and_search(path: str, regex):
-        with open(path, 'r') as file:
-            return regex.search(file.read())
+    @classmethod
+    def read_file_and_search(cls, path: str, regex, ignore_failure=False):
+        return regex.search(cls.read_file_as_text(path, ignore_failure=ignore_failure))
+
+    @classmethod
+    def read_file_and_search_group(cls, path: str, regex, ignore_failure=False, group=1):
+        search = cls.read_file_and_search(path, regex, ignore_failure=ignore_failure)
+        return search.group(group) if search else None
 
     @staticmethod
     def write_text_file(path: str, content):
@@ -100,6 +110,16 @@ class FileManager:
     def write_binary_file(path, content: bytes):
         with open(path, 'wb') as file:
             return file.write(content)
+
+    @staticmethod
+    def read_text_file_from_zip(path: str, file_path: str, ignore_failure=False):
+        try:
+            with zipfile.ZipFile(path, 'r') as zf:
+                return zf.read(file_path).decode('utf-8')
+        except FileNotFoundError as err:
+            if not ignore_failure:
+                raise err
+        return None
 
     @staticmethod
     def read_json_file(path: str):

@@ -3,7 +3,7 @@ import stat
 import subprocess
 
 from command_line import CommandRunner
-from file_utils import FileManager
+from file_manager import FileManager
 
 EXEC_NAME_GCC_CC = 'gcc'
 EXEC_NAME_GCC_CXX = 'g++'

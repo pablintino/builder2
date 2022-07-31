@@ -3,6 +3,7 @@ import re
 import urllib.parse
 
 from exceptions import BuilderException
+from file_manager import FileManager
 
 
 class CryptographicProvider:
@@ -13,7 +14,7 @@ class CryptographicProvider:
     __sha256_string_regex = re.compile('^[a-fA-F\\d]{64}$')
     __sha512_string_regex = re.compile('^[a-fA-F\\d]{128}$')
 
-    def __init__(self, file_manager):
+    def __init__(self, file_manager: FileManager):
         self._file_manager = file_manager
 
     def __get_hash_algorithm_for_string(self, hash_str: str):

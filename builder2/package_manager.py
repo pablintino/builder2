@@ -1,11 +1,13 @@
 import logging
 
+from command_line import CommandRunner
+
 __logger = logging.getLogger()
 
 
 class PackageManager:
 
-    def __init__(self, command_runner):
+    def __init__(self, command_runner: CommandRunner):
         self._command_runner = command_runner
         self._logger = logging.getLogger()
         self._update_ran = False

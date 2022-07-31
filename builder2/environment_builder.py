@@ -1,4 +1,5 @@
 import utils
+from installation_summary import InstallationSummary
 
 
 def __append_component_path_var(variables, name: str, path: str, version: str = None, triplet: str = None):
@@ -11,7 +12,7 @@ def __append_component_path_var(variables, name: str, path: str, version: str = 
     variables[var_name] = path
 
 
-def get_installation_vars(installation_summary):
+def get_installation_vars(installation_summary: InstallationSummary):
     variables = {}
     for _, component_data in installation_summary.get_components().items():
         if component_data.path:

@@ -1,18 +1,18 @@
 import logging
+import os
+import pwd
 import subprocess
 import sys
 
 import configargparse
-import os
-import pwd
+from dependency_injector.wiring import inject, Provide
 
-import command_line
-import file_utils
-import tooling_support.java_support
+import di
 import loggers
 from certificate_manager import CertificateManager
 from commands import command_commons
 from exceptions import BuilderException
+from file_manager import FileManager
 
 __logger = logging.getLogger()
 
@@ -99,14 +99,14 @@ def __filter_command_args(args):
     return bootstrap_cmd
 
 
-def __bootstrap(args):
+@inject
+def __bootstrap(args,
+                file_manager: FileManager = Provide[di.Container.file_manager],
+                certificate_manager: CertificateManager = Provide[di.Container.certificate_manager]
+                ):
     try:
         loggers.configure('INFO' if args.output else 'ERROR')
 
-        file_manager = file_utils.FileManager()
-        command_runner = command_line.CommandRunner()
-        java_tools = tooling_support.java_support.JavaTools(file_manager, command_runner)
-        certificate_manager = CertificateManager(file_manager, java_tools, command_runner)
         installation_summary = command_commons.get_installation_summary_from_args(args, file_manager)
 
         # If cert path is given and exists go install them (if path doesn't exist an exception is raised internally)
