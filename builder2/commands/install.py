@@ -4,16 +4,16 @@ import os
 import marshmallow.exceptions
 from dependency_injector.wiring import inject, Provide
 
-import di
-import environment_builder
-from file_manager import FileManager
-import loggers
-from package_manager import PackageManager
-from commands import command_commons
-from exceptions import BuilderException, BuilderValidationException
-from installation_summary import InstallationSummary
-from models.metadata_models import ToolchainMetadataSchema
-from conan_manager import ConanManager
+import builder2.loggers
+import builder2.environment_builder
+from builder2.file_manager import FileManager
+from builder2.di import Container
+from builder2.package_manager import PackageManager
+from builder2.commands import command_commons
+from builder2.exceptions import BuilderException, BuilderValidationException
+from builder2.installation_summary import InstallationSummary
+from builder2.models.metadata_models import ToolchainMetadataSchema
+from builder2.conan_manager import ConanManager
 
 __logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ def __load_toolchain_metadata(path, file_manager):
 
 def __install_components(components, target_dir, installation_summary):
     for component_key, component_config in components.items():
-        with di.Container.tool_installers[type(component_config)](
+        with Container.tool_installers[type(component_config)](
             component_key, component_config, target_dir
         ) as installer:
             component_installation = installer.run_installation()
@@ -44,12 +44,12 @@ def __install_system_packages(system_packages, installation_summary, package_man
 @inject
 def __install(
     args,
-    file_manager: FileManager = Provide[di.Container.file_manager],
-    package_manager: PackageManager = Provide[di.Container.package_manager],
-    conan_manager: ConanManager = Provide[di.Container.conan_manager],
-    target_dir: str = Provide[di.Container.config.target_dir],
+    file_manager: FileManager = Provide[Container.file_manager],
+    package_manager: PackageManager = Provide[Container.package_manager],
+    conan_manager: ConanManager = Provide[Container.conan_manager],
+    target_dir: str = Provide[Container.config.target_dir],
 ):
-    loggers.configure()
+    builder2.loggers.configure()
 
     try:
         toolchain_metadata = __load_toolchain_metadata(args.filename, file_manager)
@@ -69,7 +69,7 @@ def __install(
             )
         )
         installation_summary.add_environment_variables(
-            environment_builder.get_installation_vars(installation_summary)
+            builder2.environment_builder.get_installation_vars(installation_summary)
         )
 
         installation_summary.save(target_dir)

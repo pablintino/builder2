@@ -1,8 +1,12 @@
 import dataclasses
+from typing import List, Dict
 
 from marshmallow import fields, Schema, post_load
 
-from models.metadata_models import ToolchainComponentSchema
+from builder2.models.metadata_models import (
+    ToolchainComponentSchema,
+    BaseComponentConfiguration,
+)
 
 
 @dataclasses.dataclass
@@ -11,24 +15,24 @@ class ComponentInstallationModel:
     name: str
     path: str
     package_hash: str
-    configuration: dict
-    wellknown_paths: dict
-    environment_vars: dict
-    path_dirs: list
+    configuration: Dict[str, BaseComponentConfiguration]
+    wellknown_paths: Dict[str, str]
+    environment_vars: Dict[str, str]
+    path_dirs: List[str]
     triplet: str = None
 
 
 @dataclasses.dataclass
 class InstallationEnvironmentModel:
-    variables: dict
+    variables: Dict[str, str]
 
 
 @dataclasses.dataclass
 class InstallationSummaryModel:
     environment: InstallationEnvironmentModel
     installation_path: str
-    components: dict
-    system_packages: list
+    components: Dict[str, ComponentInstallationModel]
+    system_packages: List[str]
 
 
 class InstallationEnvironmentSchema(Schema):

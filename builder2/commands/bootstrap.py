@@ -7,13 +7,13 @@ import sys
 import configargparse
 from dependency_injector.wiring import inject, Provide
 
-import di
-import loggers
-from certificate_manager import CertificateManager
-from command_line import CommandRunner
-from commands import command_commons
-from exceptions import BuilderException
-from file_manager import FileManager
+import builder2.loggers
+from builder2.di import Container
+from builder2.certificate_manager import CertificateManager
+from builder2.command_line import CommandRunner
+from builder2.commands import command_commons
+from builder2.exceptions import BuilderException
+from builder2.file_manager import FileManager
 
 __logger = logging.getLogger(__name__)
 
@@ -90,12 +90,12 @@ def __prepare_command(args):
 @inject
 def __bootstrap(
     args,
-    file_manager: FileManager = Provide[di.Container.file_manager],
-    certificate_manager: CertificateManager = Provide[di.Container.certificate_manager],
-    command_runner: CommandRunner = Provide[di.Container.command_runner],
+    file_manager: FileManager = Provide[Container.file_manager],
+    certificate_manager: CertificateManager = Provide[Container.certificate_manager],
+    command_runner: CommandRunner = Provide[Container.command_runner],
 ):
     try:
-        loggers.configure("INFO" if args.output else "ERROR")
+        builder2.loggers.configure("INFO" if args.output else "ERROR")
 
         installation_summary = command_commons.get_installation_summary_from_args(
             args, file_manager

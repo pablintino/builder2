@@ -3,6 +3,7 @@ import os
 import subprocess
 import threading
 import time
+from typing import List, Dict
 
 
 class CommandRunner:
@@ -41,7 +42,7 @@ class CommandRunner:
 
     def run_process(
         self,
-        command_list: list[str],
+        command_list: List[str],
         cwd: str = None,
         timeout=180,
         shell: bool = False,
@@ -84,7 +85,7 @@ class CommandRunner:
                 (time.time() - start_time),
             )
 
-    def exec_command(self, command: list[str], env: dict[str, str]):
+    def exec_command(self, command: List[str], env: Dict[str, str]):
         try:
             os.execvpe(command[0], command, env)
         except OSError as err:

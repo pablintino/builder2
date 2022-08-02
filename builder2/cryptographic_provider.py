@@ -2,8 +2,8 @@ import hashlib
 import re
 import urllib.parse
 
-from exceptions import BuilderException
-from file_manager import FileManager
+from builder2.exceptions import BuilderException
+from builder2.file_manager import FileManager
 
 
 class CryptographicProvider:

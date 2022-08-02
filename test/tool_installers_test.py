@@ -2,9 +2,9 @@ import os
 from unittest.mock import patch, MagicMock
 from urllib.parse import urlparse
 
-from models.metadata_models import JdkConfiguration
-from tools import java_support
-from tools import JdkInstaller
+from builder2.models.metadata_models import JdkConfiguration
+from builder2.tools import java_support
+from builder2.tools import JdkInstaller
 
 
 class TestJdk:

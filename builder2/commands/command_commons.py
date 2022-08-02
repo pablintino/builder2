@@ -2,8 +2,8 @@ import json
 import logging
 import sys
 
-from exceptions import BuilderException, BuilderValidationException
-from installation_summary import InstallationSummary
+from builder2.exceptions import BuilderException, BuilderValidationException
+from builder2.installation_summary import InstallationSummary
 
 __logger = logging.getLogger(__name__)
 

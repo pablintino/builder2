@@ -2,8 +2,8 @@ import os
 import re
 from pathlib import Path
 
-from command_line import CommandRunner
-from file_manager import FileManager
+from builder2.command_line import CommandRunner
+from builder2.file_manager import FileManager
 
 DIR_NAME_JAVA_HOME = "java_home"
 EXEC_NAME_JAVA = "java"

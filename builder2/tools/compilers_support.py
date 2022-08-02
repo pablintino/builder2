@@ -2,8 +2,8 @@ import os
 import stat
 import subprocess
 
-from command_line import CommandRunner
-from file_manager import FileManager
+from builder2.command_line import CommandRunner
+from builder2.file_manager import FileManager
 
 EXEC_NAME_GCC_CC = "gcc"
 EXEC_NAME_GCC_CXX = "g++"

@@ -1,6 +1,6 @@
 import logging
 
-from command_line import CommandRunner
+from builder2.command_line import CommandRunner
 
 __logger = logging.getLogger()
 

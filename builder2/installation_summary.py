@@ -1,10 +1,12 @@
 from __future__ import annotations
 import logging
 import os
+from typing import List, Dict
+
 import marshmallow.exceptions
-from exceptions import BuilderValidationException
-from file_manager import FileManager
-from models.installation_models import (
+from builder2.exceptions import BuilderValidationException
+from builder2.file_manager import FileManager
+from builder2.models.installation_models import (
     ComponentInstallationModel,
     InstallationSummarySchema,
     InstallationSummaryModel,
@@ -76,20 +78,20 @@ class InstallationSummary:
     def add_system_package(self, name: str):
         self.__system_packages.append(name)
 
-    def add_system_packages(self, names: list[str]):
+    def add_system_packages(self, names: List[str]):
         self.__system_packages.extend(names)
 
     def add_environment_variable(self, name: str, value: str):
         self.__environment_vars[name] = value
 
-    def add_environment_variables(self, variables: dict[str, str]):
+    def add_environment_variables(self, variables: Dict[str, str]):
         for key, value in variables.items():
             self.add_environment_variable(key, value)
 
-    def get_environment_variables(self) -> dict[str, str]:
+    def get_environment_variables(self) -> Dict[str, str]:
         return self.__environment_vars
 
-    def get_components(self) -> dict[str, ComponentInstallationModel]:
+    def get_components(self) -> Dict[str, ComponentInstallationModel]:
         return self.__components
 
     def get_components_by_type(

@@ -3,12 +3,12 @@ from typing import Dict
 
 from dependency_injector import containers, providers
 
-from certificate_manager import CertificateManager
-from command_line import CommandRunner
-from conan_manager import ConanManager
-from cryptographic_provider import CryptographicProvider
-from file_manager import FileManager
-from models.metadata_models import (
+from builder2.certificate_manager import CertificateManager
+from builder2.command_line import CommandRunner
+from builder2.conan_manager import ConanManager
+from builder2.cryptographic_provider import CryptographicProvider
+from builder2.file_manager import FileManager
+from builder2.models.metadata_models import (
     BaseComponentConfiguration,
     GccBuildConfiguration,
     CmakeBuildConfiguration,
@@ -21,8 +21,8 @@ from models.metadata_models import (
     JdkConfiguration,
     MavenConfiguration,
 )
-from package_manager import PackageManager
-from tools import (
+from builder2.package_manager import PackageManager
+from builder2.tools import (
     JdkInstaller,
     ToolInstaller,
     MavenInstaller,
@@ -35,7 +35,7 @@ from tools import (
     CMakeSourcesInstaller,
     GccSourcesInstaller,
     CompilersSupport,
-    JavaTools
+    JavaTools,
 )
 
 

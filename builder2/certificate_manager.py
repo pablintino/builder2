@@ -2,17 +2,18 @@ import logging
 import os.path
 import re
 import tempfile
+from typing import List
 
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 
-import utils
-from command_line import CommandRunner
-from exceptions import BuilderException
-from file_manager import FileManager
-from installation_summary import InstallationSummary
-from models.metadata_models import JdkConfiguration
-from tools.java_support import EXEC_NAME_JAVA_CACERTS, EXEC_NAME_JAVA_KEYTOOL
+from builder2.utils import replace_non_alphanumeric
+from builder2.command_line import CommandRunner
+from builder2.exceptions import BuilderException
+from builder2.file_manager import FileManager
+from builder2.installation_summary import InstallationSummary
+from builder2.models.metadata_models import JdkConfiguration
+from builder2.tools.java_support import EXEC_NAME_JAVA_CACERTS, EXEC_NAME_JAVA_KEYTOOL
 
 
 class CertificateManager:
@@ -32,7 +33,7 @@ class CertificateManager:
         self._command_runner = command_runner
         self._logger = logging.getLogger(self.__class__.__name__)
 
-    def __read_certs_from_dir(self, cert_dir: str) -> list[x509.Certificate]:
+    def __read_certs_from_dir(self, cert_dir: str) -> List[x509.Certificate]:
         certs = []
         cert_files = self._file_manager.search_get_files_by_pattern(
             cert_dir, self.__CERTIFICATE_RECOGNISED_EXTENSIONS
@@ -46,12 +47,12 @@ class CertificateManager:
 
         return certs
 
-    def __install_system_certs(self, certs: list[x509.Certificate]):
+    def __install_system_certs(self, certs: List[x509.Certificate]):
         for cert in certs:
             cn = cert.subject.get_attributes_for_oid(x509.oid.NameOID.COMMON_NAME)
             if not cn:
                 raise BuilderException("Cannot get name for import certificate")
-            sanitized_cn = utils.replace_non_alphanumeric(cn[0].value, "").lower()
+            sanitized_cn = replace_non_alphanumeric(cn[0].value, "").lower()
             cert_path = os.path.join(self.__SYSTEM_CA_LOCATION, f"{sanitized_cn}.crt")
             self._file_manager.write_text_file(
                 cert_path,
@@ -111,7 +112,7 @@ class CertificateManager:
             )
 
     def __install_jdk_certificates(
-        self, installation_summary: InstallationSummary, certs: list[x509.Certificate]
+        self, installation_summary: InstallationSummary, certs: List[x509.Certificate]
     ):
         for jdk_installation in installation_summary.get_components_by_type(
             JdkConfiguration

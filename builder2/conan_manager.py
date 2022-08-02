@@ -1,13 +1,16 @@
 import configparser
 import os.path
 
-import utils
-from command_line import CommandRunner
-from file_manager import FileManager
-import tools.compilers_support
-from exceptions import BuilderException
-from installation_summary import InstallationSummary
-from models.metadata_models import GccBuildConfiguration, ClangBuildConfiguration
+from builder2.utils import replace_non_alphanumeric
+from builder2.command_line import CommandRunner
+from builder2.file_manager import FileManager
+import builder2.tools.compilers_support
+from builder2.exceptions import BuilderException
+from builder2.installation_summary import InstallationSummary
+from builder2.models.metadata_models import (
+    GccBuildConfiguration,
+    ClangBuildConfiguration,
+)
 
 
 class ConanManager:
@@ -51,14 +54,14 @@ class ConanManager:
     @staticmethod
     def __prepare_clang_profile_file(component_installation, config_parser):
         clang_path = component_installation.wellknown_paths.get(
-            tools.compilers_support.EXEC_NAME_CLANG_CC, None
+            builder2.tools.compilers_support.EXEC_NAME_CLANG_CC, None
         )
         if not clang_path:
             raise BuilderException(
                 "Cannot determine clang executable path to create conan profile"
             )
         clang_cpp_path = component_installation.wellknown_paths.get(
-            tools.compilers_support.EXEC_NAME_CLANG_CXX, None
+            builder2.tools.compilers_support.EXEC_NAME_CLANG_CXX, None
         )
         if not clang_cpp_path:
             raise BuilderException(
@@ -74,14 +77,14 @@ class ConanManager:
 
     def __prepare_gcc_profile_file(self, component_installation, config_parser):
         gcc_path = component_installation.wellknown_paths.get(
-            tools.compilers_support.EXEC_NAME_GCC_CC, None
+            builder2.tools.compilers_support.EXEC_NAME_GCC_CC, None
         )
         if not gcc_path:
             raise BuilderException(
                 "Cannot determine gcc executable path to create conan profile"
             )
         gpp_path = component_installation.wellknown_paths.get(
-            tools.compilers_support.EXEC_NAME_GCC_CXX, None
+            builder2.tools.compilers_support.EXEC_NAME_GCC_CXX, None
         )
         if not gpp_path:
             raise BuilderException(
@@ -133,7 +136,7 @@ class ConanManager:
                         )
 
                     profile_name = (
-                        f"cpp-builder-{utils.replace_non_alphanumeric(component_key, '-')}"
+                        f"cpp-builder-{replace_non_alphanumeric(component_key, '-')}"
                         f"-{release_type.lower()}.profile"
                     )
                     profile_path = os.path.join(conan_profiles_path, profile_name)
@@ -142,7 +145,7 @@ class ConanManager:
 
                     # Add a custom env var that point to profile path
                     profile_env_name = (
-                        f"BUILDER_CONAN_PROFILE_{utils.replace_non_alphanumeric(component_key, '_')}"
+                        f"BUILDER_CONAN_PROFILE_{replace_non_alphanumeric(component_key, '_')}"
                         f"_{release_type}".upper()
                     )
                     profile_vars[profile_env_name] = profile_path

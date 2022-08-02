@@ -1,5 +1,5 @@
-import utils
-from installation_summary import InstallationSummary
+from builder2.utils import replace_non_alphanumeric
+from builder2.installation_summary import InstallationSummary
 
 
 def __append_component_path_var(
@@ -19,17 +19,17 @@ def get_installation_vars(installation_summary: InstallationSummary):
     for _, component_data in installation_summary.get_components().items():
         if component_data.path:
 
-            sanitized_name = utils.replace_non_alphanumeric(component_data.name, "_")
+            sanitized_name = replace_non_alphanumeric(component_data.name, "_")
             component_versions = installation_summary.get_component_versions(
                 component_data.name
             )
             # If component has more than one version/arch or both
             if len(component_versions) > 1:
 
-                sanitized_version = utils.replace_non_alphanumeric(
+                sanitized_version = replace_non_alphanumeric(
                     component_data.version, "_"
                 )
-                sanitized_triplet = utils.replace_non_alphanumeric(
+                sanitized_triplet = replace_non_alphanumeric(
                     component_data.triplet
                     if component_data.triplet is not None
                     else "",

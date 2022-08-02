@@ -1,6 +1,6 @@
 from .compilers_support import CompilersSupport
 from .java_support import JavaTools
-from tools.tool_installers import (
+from .tool_installers import (
     JdkInstaller,
     ToolInstaller,
     MavenInstaller,

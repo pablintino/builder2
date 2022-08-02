@@ -8,10 +8,11 @@ import shutil
 import tarfile
 import urllib
 import zipfile
+from typing import List
 
 import requests
 
-from exceptions import BuilderException
+from builder2.exceptions import BuilderException
 
 __logger = logging.getLogger()
 
@@ -140,8 +141,8 @@ class FileManager:
 
     @staticmethod
     def search_get_files_by_pattern(
-        path: str, patterns: list, recursive: bool = False
-    ) -> list[pathlib.Path]:
+        path: str, patterns: List[str], recursive: bool = False
+    ) -> List[pathlib.Path]:
         search_path = pathlib.Path(path)
         if not search_path.exists():
             raise BuilderException(f"Search path {path} doesn't exist", exit_code=2)

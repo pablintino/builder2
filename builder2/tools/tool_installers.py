@@ -7,16 +7,16 @@ import re
 import tempfile
 from urllib.parse import urlparse
 
-import utils
-from command_line import CommandRunner
-from cryptographic_provider import CryptographicProvider
-from exceptions import BuilderException
-from file_manager import FileManager
-from models.installation_models import ComponentInstallationModel
-from package_manager import PackageManager
-from tools import CompilersSupport, JavaTools
-from tools.compilers_support import EXEC_NAME_GCC_CC, EXEC_NAME_CLANG_CC
-from tools.java_support import DIR_NAME_JAVA_HOME
+import builder2.utils
+from builder2.command_line import CommandRunner
+from builder2.cryptographic_provider import CryptographicProvider
+from builder2.exceptions import BuilderException
+from builder2.file_manager import FileManager
+from builder2.models.installation_models import ComponentInstallationModel
+from builder2.package_manager import PackageManager
+from builder2.tools import CompilersSupport, JavaTools
+from builder2.tools.compilers_support import EXEC_NAME_GCC_CC, EXEC_NAME_CLANG_CC
+from builder2.tools.java_support import DIR_NAME_JAVA_HOME
 
 
 class ToolInstaller(metaclass=abc.ABCMeta):
@@ -33,7 +33,9 @@ class ToolInstaller(metaclass=abc.ABCMeta):
         self._path_directories = []
 
         self._file_manager: FileManager = kwargs.get("file_manager")
-        self._cryptographic_provider: CryptographicProvider = kwargs.get("cryptographic_provider")
+        self._cryptographic_provider: CryptographicProvider = kwargs.get(
+            "cryptographic_provider"
+        )
         self._command_runner: CommandRunner = kwargs.get("command_runner")
         self._package_manager: PackageManager = kwargs.get("package_manager")
         self._core_count: int = kwargs.get("core_count", 10)
@@ -150,7 +152,7 @@ class ToolSourceInstaller(ToolInstaller):
         self._command_runner.run_process(
             cmd,
             cwd=self._sources_dir if not cwd else cwd,
-            timeout=utils.get_command_timeout(
+            timeout=builder2.utils.get_command_timeout(
                 timeout if timeout else self._timeouts[0], self._time_multiplier
             ),
             # If command is a string (typical cmake cases as it has problems detecting -D opts) use shell mode
@@ -162,7 +164,7 @@ class ToolSourceInstaller(ToolInstaller):
         self._command_runner.run_process(
             self._create_build_cmd(),
             cwd=self._sources_dir if not cwd else cwd,
-            timeout=utils.get_command_timeout(
+            timeout=builder2.utils.get_command_timeout(
                 timeout if timeout else self._timeouts[1], self._time_multiplier
             ),
             shell=shell,
@@ -173,7 +175,7 @@ class ToolSourceInstaller(ToolInstaller):
         self._command_runner.run_process(
             self._create_install_cmd(),
             cwd=self._sources_dir if not cwd else cwd,
-            timeout=utils.get_command_timeout(
+            timeout=builder2.utils.get_command_timeout(
                 timeout if timeout else self._timeouts[2], self._time_multiplier
             ),
             shell=shell,
