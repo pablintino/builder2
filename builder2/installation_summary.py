@@ -4,7 +4,7 @@ import os
 from typing import List, Dict
 
 import marshmallow.exceptions
-from builder2.exceptions import BuilderValidationException
+from builder2.exceptions import BuilderValidationException, BuilderException
 from builder2.file_manager import FileManager
 from builder2.models.installation_models import (
     ComponentInstallationModel,
@@ -93,6 +93,22 @@ class InstallationSummary:
 
     def get_components(self) -> Dict[str, ComponentInstallationModel]:
         return self.__components
+
+    def get_component_by_name_and_version(
+        self, name: str, version=None
+    ) -> ComponentInstallationModel:
+        elements = [
+            element
+            for element in self.__components.values()
+            if (element.name == name and version and element.version == version)
+            or (element.name == name and not version)
+        ]
+        if len(elements) > 1:
+            raise BuilderException(f"Multiple versions of {name} component")
+        elif elements:
+            return elements[0]
+        else:
+            return None
 
     def get_components_by_type(
         self, component_type: type
