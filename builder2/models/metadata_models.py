@@ -4,12 +4,15 @@ from marshmallow import Schema, fields, post_load
 from marshmallow_oneofschema import OneOfSchema
 
 
-@dataclasses.dataclass(kw_only=True)
+# Note: "Hacky" solution here to avoid using kw_only=True in dataclasses that makes python > 3.10 mandatory
+#       As classes are filled by marshmallow mandatory fields are warrantied by marshmallow instead of
+#       python dataclasses. This way Python 3.7> can be used
+@dataclasses.dataclass
 class BaseComponentConfiguration:
-    name: str
-    url: str
-    default: bool
-    add_to_path: bool
+    name: str = None
+    url: str = None
+    default: bool = False
+    add_to_path: bool = False
     expected_hash: str = None
     group: str = None
     version: str = None
@@ -21,63 +24,63 @@ class SourceBuildConfiguration(BaseComponentConfiguration):
     pass
 
 
-@dataclasses.dataclass(kw_only=True)
+@dataclasses.dataclass
 class CompilerBuildConfiguration(BaseComponentConfiguration):
-    config_opts: list
-    conan_profile: bool
+    config_opts: list = None
+    conan_profile: bool = None
 
 
-@dataclasses.dataclass(kw_only=True)
+@dataclasses.dataclass
 class GccBuildConfiguration(CompilerBuildConfiguration):
-    languages: list
-    suffix_version: bool
+    languages: list = None
+    suffix_version: bool = None
 
 
-@dataclasses.dataclass(kw_only=True)
+@dataclasses.dataclass
 class ClangBuildConfiguration(CompilerBuildConfiguration):
-    modules: list
-    runtimes: list
+    modules: list = None
+    runtimes: list = None
 
 
-@dataclasses.dataclass(kw_only=True)
+@dataclasses.dataclass
 class CppCheckBuildConfiguration(BaseComponentConfiguration):
-    compile_rules: bool
+    compile_rules: bool = None
 
 
-@dataclasses.dataclass(kw_only=True)
+@dataclasses.dataclass
 class ValgrindBuildConfiguration(BaseComponentConfiguration):
     pass
 
 
-@dataclasses.dataclass(kw_only=True)
+@dataclasses.dataclass
 class DownloadOnlyCompilerConfiguration(BaseComponentConfiguration):
     pass
 
 
-@dataclasses.dataclass(kw_only=True)
+@dataclasses.dataclass
 class DownloadOnlyConfiguration(BaseComponentConfiguration):
     pass
 
 
-@dataclasses.dataclass(kw_only=True)
+@dataclasses.dataclass
 class CmakeBuildConfiguration(BaseComponentConfiguration):
     pass
 
 
-@dataclasses.dataclass(kw_only=True)
+@dataclasses.dataclass
 class JdkConfiguration(BaseComponentConfiguration):
     pass
 
 
-@dataclasses.dataclass(kw_only=True)
+@dataclasses.dataclass
 class MavenConfiguration(BaseComponentConfiguration):
     pass
 
 
 @dataclasses.dataclass
 class ToolchainMetadataConfiguration:
-    components: list
-    system_packages: list
+    components: list = None
+    system_packages: list = None
 
 
 class BaseComponentSchema(Schema):

@@ -22,7 +22,7 @@ from models.metadata_models import (
     MavenConfiguration,
 )
 from package_manager import PackageManager
-from tools.tool_installers import (
+from tools import (
     JdkInstaller,
     ToolInstaller,
     MavenInstaller,
@@ -34,9 +34,9 @@ from tools.tool_installers import (
     DownloadOnlySourcesInstaller,
     CMakeSourcesInstaller,
     GccSourcesInstaller,
+    CompilersSupport,
+    JavaTools
 )
-from tools import CompilersSupport
-from tools.java_support import JavaTools
 
 
 @dataclasses.dataclass
