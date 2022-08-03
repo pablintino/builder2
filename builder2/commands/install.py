@@ -21,6 +21,10 @@ __logger = logging.getLogger(__name__)
 def __load_toolchain_metadata(path, file_manager):
     try:
         return ToolchainMetadataSchema().load(data=file_manager.read_json_file(path))
+    except FileNotFoundError as err:
+        raise BuilderException(
+            f"Toolchain metadata file '{path}' not found", exit_code=2
+        ) from err
     except marshmallow.exceptions.ValidationError as err:
         raise BuilderValidationException(
             "Validation issues in toolchain metadata", err.messages_dict

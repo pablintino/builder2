@@ -35,9 +35,15 @@ class CertificateManager:
 
     def __read_certs_from_dir(self, cert_dir: str) -> List[x509.Certificate]:
         certs = []
-        cert_files = self._file_manager.search_get_files_by_pattern(
-            cert_dir, self.__CERTIFICATE_RECOGNISED_EXTENSIONS
-        )
+        try:
+            cert_files = self._file_manager.search_get_files_by_pattern(
+                cert_dir, self.__CERTIFICATE_RECOGNISED_EXTENSIONS
+            )
+        except FileNotFoundError as err:
+            raise BuilderException(
+                f"Certificate path '{cert_dir}' does not exist or is not a valid directory"
+            ) from err
+
         for cert_file in cert_files:
             content = self._file_manager.read_file_as_text(cert_file)
             for cert_content in self.__PEM_REGEX.findall(content):

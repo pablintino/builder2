@@ -12,7 +12,9 @@ def get_installation_summary_from_args(args, file_manager):
     try:
         return InstallationSummary.from_path(args.summary_path, file_manager)
     except FileNotFoundError as err:
-        raise BuilderException(err) from err
+        raise BuilderException(
+            f"Installation summary '{args.summary_path}' not found", exit_code=2
+        ) from err
 
 
 def register_installation_summary_arg_option(command_parser):
@@ -23,6 +25,18 @@ def register_installation_summary_arg_option(command_parser):
         help="Path to the installation summary descriptor file or installation directory",
         env_var="BUILDER_INSTALLATION",
         required=True,
+    )
+
+
+def register_log_output_options(command_parser):
+    command_parser.add_argument(
+        "--output", action="store_true", help="Enables log messages"
+    )
+    command_parser.add_argument(
+        "--no-output",
+        dest="output",
+        action="store_false",
+        help="Disable all no error logs",
     )
 
 

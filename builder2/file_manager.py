@@ -6,6 +6,7 @@ import os
 import pathlib
 import shutil
 import tarfile
+import typing
 import urllib
 import zipfile
 from typing import List
@@ -53,13 +54,13 @@ class FileManager:
     def __init__(self):
         self._logger = logging.getLogger(self.__class__.__name__)
 
-    def get_remote_file_content(self, url):
+    def get_remote_file_content(self, url: str):
         self._logger.info("Fetching %s", url)
         try:
             with urllib.request.urlopen(url) as f:
                 return f.read().decode("utf-8")
-        except urllib.error.URLError as e:
-            raise BuilderException(f"Error fetching {url}") from e
+        except urllib.error.URLError as err:
+            raise BuilderException(f"Error fetching {url}") from err
 
     def extract_file(self, file, target):
         self._logger.info("Start extraction of %s", file)
@@ -107,12 +108,12 @@ class FileManager:
         return search.group(group) if search else None
 
     @staticmethod
-    def write_text_file(path: str, content):
+    def write_text_file(path: str, content: str):
         with open(path, "w") as file:
             return file.write(content)
 
     @classmethod
-    def write_as_json(cls, path: str, content):
+    def write_as_json(cls, path: str, content: typing.Dict[str, typing.Any]):
         with open(path, "w") as f:
             json.dump(content, f, indent=2, cls=cls.__EnhancedJSONEncoder)
 
@@ -132,23 +133,17 @@ class FileManager:
         return None
 
     @staticmethod
-    def read_json_file(path: str):
-        try:
-            with open(path) as f:
-                return json.load(f)
-        except FileNotFoundError as err:
-            raise BuilderException(f"Cannot read json file {path}") from err
+    def read_json_file(path: str) -> typing.Dict[str, typing.Any]:
+        with open(path) as f:
+            return json.load(f)
 
     @staticmethod
     def search_get_files_by_pattern(
         path: str, patterns: List[str], recursive: bool = False
     ) -> List[pathlib.Path]:
         search_path = pathlib.Path(path)
-        if not search_path.exists():
-            raise BuilderException(f"Search path {path} doesn't exist", exit_code=2)
-
-        if not search_path.is_dir():
-            raise BuilderException(f"Search path {path} is not a proper directory")
+        if not search_path.exists() or not search_path.is_dir():
+            raise FileNotFoundError(f"Search path {path} nof found")
 
         files = []
         for pattern in patterns:

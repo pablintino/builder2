@@ -124,21 +124,12 @@ def register(subparsers):
     command_parser = subparsers.add_parser("bootstrap")
     command_parser.set_defaults(func=__bootstrap, output=True)
     command_commons.register_installation_summary_arg_option(command_parser)
+    command_commons.register_log_output_options(command_parser)
     command_parser.add_argument(
         "--certs",
         dest="certs_dir",
         help="Optional path to the directory with the certificates to load",
         required=False,
-    )
-
-    command_parser.add_argument(
-        "--output", action="store_true", help="Enables log messages"
-    )
-    command_parser.add_argument(
-        "--no-output",
-        dest="output",
-        action="store_false",
-        help="Disable all no error logs",
     )
 
     command_parser.add_argument("remainder", nargs=configargparse.REMAINDER)

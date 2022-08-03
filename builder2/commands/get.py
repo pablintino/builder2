@@ -61,6 +61,7 @@ def register(subparsers):
     command_parser = subparsers.add_parser("get")
     command_parser.set_defaults(func=__get_variable, output=False)
     command_commons.register_installation_summary_arg_option(command_parser)
+    command_commons.register_log_output_options(command_parser)
     command_parser.add_argument("tool", help="The tool to query")
     command_parser.add_argument(
         "query",
@@ -79,14 +80,4 @@ def register(subparsers):
         dest="version",
         help="Version of the component to query",
         required=False,
-    )
-
-    command_parser.add_argument(
-        "--output", action="store_true", help="Enables log messages"
-    )
-    command_parser.add_argument(
-        "--no-output",
-        dest="output",
-        action="store_false",
-        help="Disable all no error logs",
     )
