@@ -1,111 +1,7 @@
 {
   "system-packages": [
-    "build-essential",
-    "apt-utils",
-    "curl",
-    "wget",
-    "automake",
-    "autogen",
-    "bash",
-    "bc",
-    "ca-certificates",
-    "curl",
-    "cmake",
-    "file",
-    "git",
-    "make",
-    "ncurses-dev",
-    "pkg-config",
-    "libtool",
-    "ninja-build",
-    "sed",
-    "bison",
-    "flex",
-    "tar",
-    "bzip2",
-    "gzip",
-    "runit",
-    "xz-utils",
-    "libssl-dev"
   ],
   "components": {
-    "gcc-11": {
-      "group": "compilers",
-      "type": "gcc-build",
-      "name": "gcc",
-      "url": "https://github.com/gcc-mirror/gcc/archive/refs/tags/releases/gcc-11.2.0.tar.gz",
-      "languages": [
-        "c",
-        "c++",
-        "lto"
-      ],
-      "required-packages": [
-        "zlib1g-dev"
-      ],
-      "suffix-version": false,
-      "conan-profile": true,
-      "config-opts": [
-        "--disable-vtable-verify",
-        "--disable-multilib",
-        "--disable-werror",
-        "--without-included-gettext",
-        "--enable-checking=release",
-        "--enable-shared",
-        "--enable-linker-build-id",
-        "--enable-threads=posix",
-        "--enable-nls",
-        "--enable-clocale=gnu",
-        "--enable-libstdcxx-debug",
-        "--enable-libstdcxx-time=yes",
-        "--enable-gnu-unique-object",
-        "--enable-plugin",
-        "--enable-default-pie",
-        "--enable-objc-gc=auto",
-        "--enable-multiarch",
-        "--with-system-zlib",
-        "--with-target-system-zlib=auto",
-        "--with-default-libstdcxx-abi=new"
-      ]
-    },
-    "gcc-10": {
-      "group": "compilers",
-      "type": "gcc-build",
-      "name": "gcc",
-      "default": true,
-      "url": "https://github.com/gcc-mirror/gcc/archive/refs/tags/releases/gcc-10.3.0.tar.gz",
-      "languages": [
-        "c",
-        "c++",
-        "lto"
-      ],
-      "required-packages": [
-        "zlib1g-dev"
-      ],
-      "suffix-version": false,
-      "conan-profile": true,
-      "config-opts": [
-        "--disable-vtable-verify",
-        "--disable-multilib",
-        "--disable-werror",
-        "--without-included-gettext",
-        "--enable-checking=release",
-        "--enable-shared",
-        "--enable-linker-build-id",
-        "--enable-threads=posix",
-        "--enable-nls",
-        "--enable-clocale=gnu",
-        "--enable-libstdcxx-debug",
-        "--enable-libstdcxx-time=yes",
-        "--enable-gnu-unique-object",
-        "--enable-plugin",
-        "--enable-default-pie",
-        "--enable-objc-gc=auto",
-        "--enable-multiarch",
-        "--with-system-zlib",
-        "--with-target-system-zlib=auto",
-        "--with-default-libstdcxx-abi=new"
-      ]
-    },
     "cmake-3.22": {
       "name": "cmake",
       "type": "cmake-build",
@@ -120,7 +16,7 @@
     "cppcheck-2.6": {
       "type": "cppcheck-build",
       "name": "cppcheck",
-      "compile-rules": true,
+      "compile-rules": false,
       "url": "https://github.com/danmar/cppcheck/archive/refs/tags/2.6.tar.gz"
     },
     "valgrind-3.18.1": {
@@ -128,21 +24,6 @@
       "name": "valgrind",
       "url": "https://sourceware.org/pub/valgrind/valgrind-3.18.1.tar.bz2",
       "required-packages": [
-        "libc6-dbg"
-      ]
-    },
-    "clang-13": {
-      "group": "compilers",
-      "type": "clang-build",
-      "name": "clang",
-      "conan-profile": true,
-      "config-opts": [
-        "-DBUILD_SHARED_LIBS=on"
-      ],
-      "url": "https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-13.0.0.tar.gz",
-      "modules": [
-        "clang",
-        "clang-tools-extra"
       ]
     }
   }

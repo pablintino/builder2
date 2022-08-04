@@ -57,12 +57,12 @@ class TestJdk:
         def read_file_and_search_group_side_effect(*args, **kwargs):
             if args[0] == os.path.join(target_dir, "release"):
                 with open(
+                    os.path.join(
                         os.path.join(
-                            os.path.join(
-                                os.path.dirname(__file__), "data", "jdk-release-file"
-                            )
-                        ),
-                        "r",
+                            os.path.dirname(__file__), "data", "jdk-release-file"
+                        )
+                    ),
+                    "r",
                 ) as f:
                     release_content = f.read()
                     return args[1].search(release_content).group(1)
@@ -75,14 +75,14 @@ class TestJdk:
 
         java_tools_mock = self.__build_java_tools_mock()
         with JdkInstaller(
-                tool_key,
-                config,
-                installation_base_dir,
-                file_manager=file_manager,
-                cryptographic_provider=cryptographic_provider_mock,
-                command_runner=command_runner_mock,
-                package_manager=package_manager_mock,
-                java_tools=java_tools_mock,
+            tool_key,
+            config,
+            installation_base_dir,
+            file_manager=file_manager,
+            cryptographic_provider=cryptographic_provider_mock,
+            command_runner=command_runner_mock,
+            package_manager=package_manager_mock,
+            java_tools=java_tools_mock,
         ) as installer:
             installation = installer.run_installation()
             assert installation
@@ -90,19 +90,19 @@ class TestJdk:
             assert installation.version == "11.0.1"
             assert installation.path == target_dir
             assert (
-                    installation.package_hash
-                    == cryptographic_provider_mock.compute_file_sha1.return_value
+                installation.package_hash
+                == cryptographic_provider_mock.compute_file_sha1.return_value
             )
             assert (
-                    installation.wellknown_paths
-                    == java_tools_mock.get_jdk_wellknown_paths.return_value
+                installation.wellknown_paths
+                == java_tools_mock.get_jdk_wellknown_paths.return_value
             )
             assert "JAVA_HOME" in installation.environment_vars
             assert (
-                    installation.environment_vars["JAVA_HOME"]
-                    == java_tools_mock.get_jdk_wellknown_paths.return_value[
-                        java_support.DIR_NAME_JAVA_HOME
-                    ]
+                installation.environment_vars["JAVA_HOME"]
+                == java_tools_mock.get_jdk_wellknown_paths.return_value[
+                    java_support.DIR_NAME_JAVA_HOME
+                ]
             )
             assert installation.path_dirs and installation.path_dirs[0] == str(
                 os.path.join(target_dir, "bin")
@@ -171,12 +171,12 @@ class TestJdk:
         def read_file_and_search_group_side_effect(*args, **kwargs):
             if args[0] == os.path.join(target_dir, "version.txt"):
                 with open(
+                    os.path.join(
                         os.path.join(
-                            os.path.join(
-                                os.path.dirname(__file__), "data", "jdk-version-file"
-                            )
-                        ),
-                        "r",
+                            os.path.dirname(__file__), "data", "jdk-version-file"
+                        )
+                    ),
+                    "r",
                 ) as f:
                     return f.read()
             return None
@@ -187,14 +187,14 @@ class TestJdk:
         file_manager.read_file_and_search_group.return_value = None
         java_tools_mock = self.__build_java_tools_mock()
         with JdkInstaller(
-                tool_key,
-                config,
-                installation_base_dir,
-                file_manager=file_manager,
-                cryptographic_provider=cryptographic_provider_mock,
-                command_runner=command_runner_mock,
-                package_manager=package_manager_mock,
-                java_tools=java_tools_mock,
+            tool_key,
+            config,
+            installation_base_dir,
+            file_manager=file_manager,
+            cryptographic_provider=cryptographic_provider_mock,
+            command_runner=command_runner_mock,
+            package_manager=package_manager_mock,
+            java_tools=java_tools_mock,
         ) as installer:
             installation = installer.run_installation()
             assert installation
@@ -202,19 +202,19 @@ class TestJdk:
             assert installation.version == "8.342.07.4"
             assert installation.path == target_dir
             assert (
-                    installation.package_hash
-                    == cryptographic_provider_mock.compute_file_sha1.return_value
+                installation.package_hash
+                == cryptographic_provider_mock.compute_file_sha1.return_value
             )
             assert (
-                    installation.wellknown_paths
-                    == java_tools_mock.get_jdk_wellknown_paths.return_value
+                installation.wellknown_paths
+                == java_tools_mock.get_jdk_wellknown_paths.return_value
             )
             assert "JAVA_HOME" in installation.environment_vars
             assert (
-                    installation.environment_vars["JAVA_HOME"]
-                    == java_tools_mock.get_jdk_wellknown_paths.return_value[
-                        java_support.DIR_NAME_JAVA_HOME
-                    ]
+                installation.environment_vars["JAVA_HOME"]
+                == java_tools_mock.get_jdk_wellknown_paths.return_value[
+                    java_support.DIR_NAME_JAVA_HOME
+                ]
             )
             assert installation.path_dirs and installation.path_dirs[0] == str(
                 os.path.join(target_dir, "bin")
@@ -252,16 +252,16 @@ class TestJdk:
 
     @staticmethod
     def __comon_jdk_Installer_mock_assertions(
-            cleanup_mock,
-            config,
-            cryptographic_provider_mock,
-            file_manager,
-            package_manager_mock,
-            sources_directory,
-            tar_file_path,
-            target_dir,
-            bin_path_mock,
-            temp_path,
+        cleanup_mock,
+        config,
+        cryptographic_provider_mock,
+        file_manager,
+        package_manager_mock,
+        sources_directory,
+        tar_file_path,
+        target_dir,
+        bin_path_mock,
+        temp_path,
     ):
         # Ensure tool is copied to its final destination
         file_manager.copy_file_tree.assert_called_once_with(

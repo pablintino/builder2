@@ -1,4 +1,5 @@
 import dataclasses
+import typing
 
 from marshmallow import Schema, fields, post_load
 from marshmallow_oneofschema import OneOfSchema
@@ -79,8 +80,8 @@ class MavenConfiguration(BaseComponentConfiguration):
 
 @dataclasses.dataclass
 class ToolchainMetadataConfiguration:
-    components: list = None
-    system_packages: list = None
+    components: typing.Dict[str, BaseComponentConfiguration] = None
+    system_packages: typing.List[str] = None
 
 
 class BaseComponentSchema(Schema):

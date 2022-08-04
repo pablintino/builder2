@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Dict
 
 import marshmallow.exceptions
 from dependency_injector.wiring import inject, Provide
@@ -12,13 +13,17 @@ from builder2.package_manager import PackageManager
 from builder2.commands import command_commons
 from builder2.exceptions import BuilderException, BuilderValidationException
 from builder2.installation_summary import InstallationSummary
-from builder2.models.metadata_models import ToolchainMetadataSchema
+from builder2.models.metadata_models import (
+    ToolchainMetadataSchema,
+    ToolchainMetadataConfiguration,
+    BaseComponentConfiguration,
+)
 from builder2.conan_manager import ConanManager
 
 __logger = logging.getLogger(__name__)
 
 
-def __load_toolchain_metadata(path, file_manager):
+def __load_toolchain_metadata(path, file_manager) -> ToolchainMetadataConfiguration:
     try:
         return ToolchainMetadataSchema().load(data=file_manager.read_json_file(path))
     except FileNotFoundError as err:
@@ -31,12 +36,20 @@ def __load_toolchain_metadata(path, file_manager):
         )
 
 
-def __install_components(components, target_dir, installation_summary):
+def __install_components(
+    components: Dict[str, BaseComponentConfiguration],
+    target_dir: str,
+    installation_summary: InstallationSummary,
+    conan_manager: ConanManager,
+):
     for component_key, component_config in components.items():
         with Container.tool_installers[type(component_config)](
             component_key, component_config, target_dir
         ) as installer:
             component_installation = installer.run_installation()
+            conan_manager.add_profiles_to_component(
+                component_key, component_installation, target_dir
+            )
             installation_summary.add_component(component_key, component_installation)
 
 
@@ -63,15 +76,12 @@ def __install(
             toolchain_metadata.system_packages, installation_summary, package_manager
         )
         __install_components(
-            toolchain_metadata.components, target_dir, installation_summary
+            toolchain_metadata.components,
+            target_dir,
+            installation_summary,
+            conan_manager,
         )
 
-        # Add conan profiles env vars and all component ones
-        installation_summary.add_environment_variables(
-            conan_manager.create_profiles_from_installation(
-                installation_summary, target_dir
-            )
-        )
         installation_summary.add_environment_variables(
             builder2.environment_builder.get_installation_vars(installation_summary)
         )

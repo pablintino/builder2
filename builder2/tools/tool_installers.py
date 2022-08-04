@@ -1,5 +1,4 @@
 import abc
-import dataclasses
 import logging
 import os
 import pathlib
@@ -291,11 +290,12 @@ class GccSourcesInstaller(ToolSourceInstaller):
             super()._compute_tool_version()
 
     def _create_component_installation(self):
-        base_summary = super()._create_component_installation()
-        target_triplet = self._command_runner.run_process(
+        summary = super()._create_component_installation()
+        summary.triplet = self._command_runner.run_process(
             [self._wellknown_paths[EXEC_NAME_GCC_CC], "-dumpmachine"]
         ).strip()
-        return dataclasses.replace(base_summary, triplet=target_triplet)
+
+        return summary
 
     def _compute_wellknown_paths(self):
         self._wellknown_paths.update(
@@ -376,18 +376,17 @@ class ClangSourcesInstaller(ToolSourceInstaller):
             super()._compute_tool_version()
 
     def _create_component_installation(self):
-        base_summary = super()._create_component_installation()
+        summary = super()._create_component_installation()
 
         # Remember. This ic GCC native, but clang implements the command as well
         # Note: Keep in mind that clang itself could not be present if not selected to be compiled: Optional
         clang_bin_path = self._wellknown_paths.get(EXEC_NAME_CLANG_CC, None)
         if clang_bin_path:
-            return dataclasses.replace(
-                base_summary,
-                triplet=self._compilers_support.get_compiler_triplet(clang_bin_path),
+            summary.triplet = self._compilers_support.get_compiler_triplet(
+                clang_bin_path
             )
-        else:
-            return base_summary
+
+        return summary
 
     def _compute_wellknown_paths(self):
         self._wellknown_paths.update(
@@ -502,17 +501,11 @@ class DownloadOnlyCompilerInstaller(DownloadOnlySourcesInstaller):
             super()._compute_tool_version()
 
     def _create_component_installation(self):
-        base_summary = super()._create_component_installation()
-
-        binary = self.__get_binary_path()
-        return (
-            dataclasses.replace(
-                base_summary,
-                triplet=self._compilers_support.get_compiler_triplet(binary),
-            )
-            if binary
-            else base_summary
+        summary = super()._create_component_installation()
+        summary.triplet = self._compilers_support.get_compiler_triplet(
+            self.__get_binary_path()
         )
+        return summary
 
     def _compute_wellknown_paths(self):
         self._wellknown_paths.update(

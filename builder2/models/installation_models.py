@@ -9,17 +9,30 @@ from builder2.models.metadata_models import (
 )
 
 
-@dataclasses.dataclass
 class ComponentInstallationModel:
-    version: str
-    name: str
-    path: str
-    package_hash: str
-    configuration: Dict[str, BaseComponentConfiguration]
-    wellknown_paths: Dict[str, str]
-    environment_vars: Dict[str, str]
-    path_dirs: List[str]
-    triplet: str = None
+    def __init__(
+        self,
+        name: str,
+        version: str,
+        path: str,
+        package_hash: str,
+        configuration: BaseComponentConfiguration,
+        triplet: str = None,
+        wellknown_paths: Dict[str, str] = None,
+        environment_vars: Dict[str, str] = None,
+        path_dirs: List[str] = None,
+        conan_profiles: Dict[str, str] = None,
+    ):
+        self.version = version
+        self.name = name
+        self.path = path
+        self.package_hash = package_hash
+        self.configuration = configuration
+        self.wellknown_paths = wellknown_paths if wellknown_paths else {}
+        self.environment_vars = environment_vars if environment_vars else {}
+        self.conan_profiles = conan_profiles if conan_profiles else {}
+        self.path_dirs = path_dirs if path_dirs else []
+        self.triplet = triplet
 
 
 @dataclasses.dataclass
@@ -64,6 +77,13 @@ class ComponentInstallationSchema(Schema):
         dump_default={},
         load_default={},
         data_key="environment-vars",
+    )
+    conan_profiles = fields.Dict(
+        keys=fields.String(),
+        values=fields.String(),
+        dump_default={},
+        load_default={},
+        data_key="conan-profiles",
     )
     path_dirs = fields.List(fields.String, data_key="path-dirs", load_default=[])
     configuration = fields.Nested(ToolchainComponentSchema, required=True)
