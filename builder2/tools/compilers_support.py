@@ -1,5 +1,4 @@
 import os
-import stat
 import subprocess
 
 from builder2.command_line import CommandRunner
@@ -46,15 +45,11 @@ class CompilersSupport:
         ):
             exec_path = str(path.absolute())
             if (
-                not path.is_dir()
-                and not path.name.endswith(
+                not path.name.endswith(
                     (".py", ".perl", ".sh", ".bash", ".el", ".applescript")
                 )
-                # Is executable
-                and bool(
-                    path.stat().st_mode & (stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
-                )
-                # Discard clang++ executables
+                and self._file_manager.file_is_executable(exec_path)
+                # Discard ignored executables
                 and all(
                     [
                         (to_ignore_name not in path.stem)

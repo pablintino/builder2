@@ -3,6 +3,7 @@ import logging
 import os
 import pathlib
 import re
+import stat
 import tempfile
 from urllib.parse import urlparse
 
@@ -30,6 +31,8 @@ class ToolInstaller(metaclass=abc.ABCMeta):
         self._wellknown_paths = {}
         self._component_env_vars = {}
         self._path_directories = []
+        self._executables_dir = kwargs.get("executables_dir", "bin")
+        self._known_executables = kwargs.get("known_executables", [])
 
         self._file_manager: FileManager = kwargs.get("file_manager")
         self._cryptographic_provider: CryptographicProvider = kwargs.get(
@@ -103,8 +106,14 @@ class ToolInstaller(metaclass=abc.ABCMeta):
         self._package_manager.install_packages(self._config.required_packages)
 
     def _compute_wellknown_paths(self):
-        # Defaults to the already created empty dict
-        pass
+        for executable in self._known_executables:
+            executable_path = (
+                pathlib.Path(self._target_dir)
+                .joinpath(self._executables_dir)
+                .joinpath(executable)
+            )
+            if self._file_manager.file_is_executable(executable_path):
+                self._wellknown_paths[executable] = str(executable_path.absolute())
 
     def _compute_component_env_vars(self):
         # Defaults to the already created empty dict
@@ -112,7 +121,7 @@ class ToolInstaller(metaclass=abc.ABCMeta):
 
     def _compute_path_directories(self):
         # Adds /bin if exists
-        bin_path = pathlib.Path(self._target_dir).joinpath("bin")
+        bin_path = pathlib.Path(self._target_dir).joinpath(self._executables_dir)
         if bin_path.exists() and bin_path.is_dir():
             self._path_directories.append(str(bin_path.absolute()))
 
@@ -199,6 +208,9 @@ class ToolSourceInstaller(ToolInstaller):
 
 class CMakeSourcesInstaller(ToolSourceInstaller):
     __VERSION_REGEX = re.compile(r'CMake_VERSION\s"([a-zA-Z\d.]*)"')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, known_executables=["cmake"], **kwargs)
 
     def _compute_tool_version(self):
         version_files = self._file_manager.search_get_files_by_pattern(
@@ -403,7 +415,7 @@ class CppCheckSourcesInstaller(ToolSourceInstaller):
     )
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, known_executables=["cppcheck"], **kwargs)
 
     def _create_config_cmd(self):
         command = [
@@ -449,6 +461,9 @@ class CppCheckSourcesInstaller(ToolSourceInstaller):
 
 class ValgrindSourcesInstaller(ToolSourceInstaller):
     __SPEC_FILE__PATTERN = re.compile(r"Version:\s?([a-zA-Z\d.]*)", re.IGNORECASE)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, known_executables=["valgrind"], **kwargs)
 
     def _compute_tool_version(self):
         spec_file = os.path.join(self._sources_dir, "valgrind.spec")
@@ -554,6 +569,9 @@ class JdkInstaller(DownloadOnlySourcesInstaller):
 
 class MavenInstaller(DownloadOnlySourcesInstaller):
     __VERSION_REGEX = re.compile(r"Implementation-Version:\s?([\d.]*)")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, known_executables=["mvn"], **kwargs)
 
     def _compute_tool_version(self):
 

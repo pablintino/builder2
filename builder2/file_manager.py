@@ -5,6 +5,7 @@ import logging
 import os
 import pathlib
 import shutil
+import stat
 import tarfile
 import typing
 import urllib
@@ -80,6 +81,18 @@ class FileManager:
     @staticmethod
     def copy_file_tree(src: str, dst: str):
         shutil.copytree(src, dst)
+
+    @staticmethod
+    def file_is_executable(path: str):
+        executable_path = pathlib.Path(path)
+        return (
+            executable_path.exists()
+            and executable_path.is_file()
+            and bool(
+                executable_path.stat().st_mode
+                & (stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+            )
+        )
 
     @staticmethod
     def read_file_as_bytes(path: str):
