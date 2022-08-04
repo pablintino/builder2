@@ -94,8 +94,8 @@ class InstallationSummary:
     def get_components(self) -> Dict[str, ComponentInstallationModel]:
         return self.__components
 
-    def get_component_by_name_and_version(
-        self, name: str, version=None
+    def get_component(
+        self, name: str, version=None, default_if_not_found=False
     ) -> ComponentInstallationModel:
         elements = [
             element
@@ -103,10 +103,19 @@ class InstallationSummary:
             if (element.name == name and version and element.version == version)
             or (element.name == name and not version)
         ]
-        if len(elements) > 1:
+        if len(elements) > 1 and not default_if_not_found:
             raise BuilderException(f"Multiple versions of {name} component")
         elif elements:
             return elements[0]
+        elif default_if_not_found and not elements:
+            return next(
+                [
+                    element
+                    for element in self.__components.values()
+                    if (element.name == name and element.configuration.default)
+                ],
+                None,
+            )
         else:
             return None
 

@@ -76,8 +76,8 @@ def __get_variable(
             args, file_manager
         )
 
-        component = installation_summary.get_component_by_name_and_version(
-            args.component, version=args.version
+        component = installation_summary.get_component(
+            args.component, version=args.version, default_if_not_found=True
         )
 
         if component:
