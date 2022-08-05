@@ -109,7 +109,7 @@ class InstallationSummarySchema(Schema):
     system_packages = fields.List(
         fields.String, data_key="system-packages", load_default=[]
     )
-    installed_at = fields.DateTime(data_key="installed-at")
+    installed_at = fields.DateTime(data_key="installed-at", required=True)
 
     @post_load
     def make_installation_summary(self, data, **kwargs):

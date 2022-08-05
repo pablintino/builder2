@@ -3,7 +3,6 @@ import logging
 import os
 import pathlib
 import re
-import stat
 import tempfile
 from urllib.parse import urlparse
 

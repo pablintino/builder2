@@ -1,19 +1,26 @@
 import configargparse
 
 from builder2.di import Container
+from builder2 import __version__
 from builder2.commands import bootstrap, install, load_certificates, get
 
-parser = configargparse.ArgumentParser(prog="builder2")
-subparsers = parser.add_subparsers(dest="command", required=True)
 
-
-def main():
+def __build_args_parser():
+    parser = configargparse.ArgumentParser(prog="builder2")
+    subparsers = parser.add_subparsers(dest="command", required=True)
     bootstrap.register(subparsers)
     install.register(subparsers)
     install.register(subparsers)
     load_certificates.register(subparsers)
     get.register(subparsers)
-    args = parser.parse_args()
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {__version__}"
+    )
+    return parser
+
+
+def main():
+    args = __build_args_parser().parse_args()
 
     Container.config.from_dict(args.__dict__)
 
