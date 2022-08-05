@@ -19,13 +19,16 @@ class InstallationSummary:
     __logger = logging.getLogger(__name__)
 
     def __init__(
-        self, file_manager: FileManager, summary: InstallationSummaryModel = None
+        self,
+        file_manager: FileManager,
+        summary: InstallationSummaryModel = None,
+        path=None,
     ):
         self._file_manager = file_manager
         self.__components = {}
         self.__system_packages = []
         self.__environment_vars = {}
-
+        self.path = path
         if summary:
             # Mandatory as cannot use the rest without the installation path
             self.__installation_path = summary.installation_path
@@ -47,6 +50,7 @@ class InstallationSummary:
                 summary=InstallationSummarySchema().load(
                     data=file_manager.read_json_file(summary_path)
                 ),
+                path=summary_path,
             )
         except marshmallow.exceptions.ValidationError as err:
             raise BuilderValidationException(

@@ -8,6 +8,7 @@ import configargparse
 from dependency_injector.wiring import inject, Provide
 
 import builder2.loggers
+from builder2 import constants
 from builder2.di import Container
 from builder2.certificate_manager import CertificateManager
 from builder2.command_line import CommandRunner
@@ -79,6 +80,10 @@ def __get_env_vars(installation_summary, environment_builder, generate_variables
         variables.update(
             environment_builder.get_installation_vars(installation_summary)
         )
+
+    # If the builder installation path env var is not present add it to simplify other commands after bootstrapped
+    if constants.INSTALLATION_SUMMARY_ENV_VAR not in variables:
+        variables[constants.INSTALLATION_SUMMARY_ENV_VAR] = installation_summary.path
 
     return variables
 
