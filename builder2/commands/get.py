@@ -92,18 +92,26 @@ def __get_variable(
 def __register_common_command_options(command_parser):
     command_parser.add_argument("component", help="The name of the component to query")
     command_commons.register_installation_summary_arg_option(command_parser)
-    command_commons.register_log_output_options(command_parser)
     command_parser.add_argument(
-        "-v",
-        "--version",
+        "--output", action="store_true", help="Enables log messages"
+    )
+    command_parser.add_argument(
+        "--component-version",
+        dest="version",
         required=False,
         help="The component version to refine component search",
+    )
+    command_parser.add_argument(
+        "--component-triplet",
+        dest="triplet",
+        required=False,
+        help="The component triplet to refine component search",
     )
 
 
 def __register_conan_query(query_subparsers):
     command_parser = query_subparsers.add_parser("conan")
-    command_parser.set_defaults(query_func=__conan_query)
+    command_parser.set_defaults(query_func=__conan_query, output=False)
     __register_common_command_options(command_parser)
     command_parser.add_argument(
         "type",

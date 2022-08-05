@@ -7,6 +7,7 @@ from builder2.certificate_manager import CertificateManager
 from builder2.command_line import CommandRunner
 from builder2.conan_manager import ConanManager
 from builder2.cryptographic_provider import CryptographicProvider
+from builder2.environment_builder import EnvironmentBuilder
 from builder2.file_manager import FileManager
 from builder2.models.metadata_models import (
     BaseComponentConfiguration,
@@ -66,6 +67,8 @@ class Container(containers.DeclarativeContainer):
     conan_manager = providers.Singleton(ConanManager, file_manager, command_runner)
 
     java_tools = providers.Singleton(JavaTools, file_manager, command_runner)
+
+    environment_builder = providers.Singleton(EnvironmentBuilder)
 
     maven_installer_factory = providers.Factory(
         MavenInstaller,

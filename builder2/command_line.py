@@ -44,7 +44,7 @@ class CommandRunner:
         self,
         command_list: List[str],
         cwd: str = None,
-        timeout=180,
+        timeout: int = 180,
         shell: bool = False,
         silent: bool = False,
     ):

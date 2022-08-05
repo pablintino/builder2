@@ -1,5 +1,7 @@
 import hashlib
+import os
 import re
+import typing
 import urllib.parse
 
 from builder2.exceptions import BuilderException
@@ -28,7 +30,7 @@ class CryptographicProvider:
             return hashlib.sha512()
         raise BuilderException(f"Cannot infer hash algorithm for {hash_str}")
 
-    def compute_file_hash(self, path: str, algorithm):
+    def compute_file_hash(self, path: typing.Union[str, os.PathLike], algorithm) -> str:
         with open(path, "rb") as f:
             fb = f.read(self.__HASH_CHUNK_SIZE)
             while len(fb) > 0:
@@ -37,10 +39,12 @@ class CryptographicProvider:
 
         return algorithm.hexdigest()
 
-    def compute_file_sha1(self, path: str):
+    def compute_file_sha1(self, path: typing.Union[str, os.PathLike]) -> str:
         return self.compute_file_hash(path, hashlib.sha1())
 
-    def validate_file_hash(self, file_path, expected_hash_string):
+    def validate_file_hash(
+        self, file_path: typing.Union[str, os.PathLike], expected_hash_string: str
+    ):
         parse_result = urllib.parse.urlparse(expected_hash_string)
         if parse_result.netloc and parse_result.scheme:
             remote_hash = self._file_manager.get_remote_file_content(

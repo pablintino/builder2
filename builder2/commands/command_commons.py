@@ -28,18 +28,6 @@ def register_installation_summary_arg_option(command_parser):
     )
 
 
-def register_log_output_options(command_parser):
-    command_parser.add_argument(
-        "--output", action="store_true", help="Enables log messages"
-    )
-    command_parser.add_argument(
-        "--no-output",
-        dest="output",
-        action="store_false",
-        help="Disable all no error logs",
-    )
-
-
 def manage_builder_exceptions(exception):
     if isinstance(exception, BuilderValidationException):
         __logger.error(exception.message)

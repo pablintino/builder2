@@ -55,7 +55,7 @@ class FileManager:
     def __init__(self):
         self._logger = logging.getLogger(self.__class__.__name__)
 
-    def get_remote_file_content(self, url: str):
+    def get_remote_file_content(self, url: str) -> str:
         self._logger.info("Fetching %s", url)
         try:
             with urllib.request.urlopen(url) as f:
@@ -83,8 +83,8 @@ class FileManager:
         shutil.copytree(src, dst)
 
     @staticmethod
-    def file_is_executable(path: str):
-        executable_path = pathlib.Path(path)
+    def file_is_executable(path: typing.Union[str, os.PathLike]) -> bool:
+        executable_path = pathlib.Path(path) if isinstance(path, str) else path
         return (
             executable_path.exists()
             and executable_path.is_file()
@@ -95,12 +95,14 @@ class FileManager:
         )
 
     @staticmethod
-    def read_file_as_bytes(path: str):
+    def read_file_as_bytes(path: typing.Union[str, os.PathLike]) -> bytes:
         with open(path, "rb") as file:
             return file.read()
 
     @classmethod
-    def read_file_as_text(cls, path: str, ignore_failure=False):
+    def read_file_as_text(
+        cls, path: typing.Union[str, os.PathLike], ignore_failure: bool = False
+    ) -> str:
         try:
             with open(path, "r") as file:
                 return file.read()
@@ -110,33 +112,45 @@ class FileManager:
         return None
 
     @classmethod
-    def read_file_and_search(cls, path: str, regex, ignore_failure=False):
+    def read_file_and_search(
+        cls, path: typing.Union[str, os.PathLike], regex, ignore_failure: bool = False
+    ):
         return regex.search(cls.read_file_as_text(path, ignore_failure=ignore_failure))
 
     @classmethod
     def read_file_and_search_group(
-        cls, path: str, regex, ignore_failure=False, group=1
-    ):
+        cls,
+        path: typing.Union[str, os.PathLike],
+        regex,
+        ignore_failure: bool = False,
+        group: int = 1,
+    ) -> str:
         search = cls.read_file_and_search(path, regex, ignore_failure=ignore_failure)
         return search.group(group) if search else None
 
     @staticmethod
-    def write_text_file(path: str, content: str):
+    def write_text_file(path: typing.Union[str, os.PathLike], content: str):
         with open(path, "w") as file:
             return file.write(content)
 
     @classmethod
-    def write_as_json(cls, path: str, content: typing.Dict[str, typing.Any]):
+    def write_as_json(
+        cls, path: typing.Union[str, os.PathLike], content: typing.Dict[str, typing.Any]
+    ):
         with open(path, "w") as f:
             json.dump(content, f, indent=2, cls=cls.__EnhancedJSONEncoder)
 
     @staticmethod
-    def write_binary_file(path, content: bytes):
+    def write_binary_file(path: typing.Union[str, os.PathLike], content: bytes):
         with open(path, "wb") as file:
             return file.write(content)
 
     @staticmethod
-    def read_text_file_from_zip(path: str, file_path: str, ignore_failure=False):
+    def read_text_file_from_zip(
+        path: typing.Union[str, os.PathLike],
+        file_path: str,
+        ignore_failure: bool = False,
+    ) -> str:
         try:
             with zipfile.ZipFile(path, "r") as zf:
                 return zf.read(file_path).decode("utf-8")
@@ -146,7 +160,9 @@ class FileManager:
         return None
 
     @staticmethod
-    def read_json_file(path: str) -> typing.Dict[str, typing.Any]:
+    def read_json_file(
+        path: typing.Union[str, os.PathLike]
+    ) -> typing.Dict[str, typing.Any]:
         with open(path) as f:
             return json.load(f)
 
@@ -167,7 +183,7 @@ class FileManager:
             )
         return files
 
-    def download_file(self, url, dst_file):
+    def download_file(self, url: str, dst_file: typing.Union[str, os.PathLike]):
         self._logger.info("Start download of %s", url)
         resp = requests.get(url, stream=True)
         total = int(resp.headers.get("content-length", 0))

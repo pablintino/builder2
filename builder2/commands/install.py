@@ -1,5 +1,6 @@
 import logging
 import os
+import pathlib
 from typing import Dict
 
 import marshmallow.exceptions
@@ -25,7 +26,10 @@ __logger = logging.getLogger(__name__)
 
 def __load_toolchain_metadata(path, file_manager) -> ToolchainMetadataConfiguration:
     try:
-        return ToolchainMetadataSchema().load(data=file_manager.read_json_file(path))
+
+        return ToolchainMetadataSchema().load(
+            data=file_manager.read_json_file(pathlib.Path(path).absolute())
+        )
     except FileNotFoundError as err:
         raise BuilderException(
             f"Toolchain metadata file '{path}' not found", exit_code=2
@@ -66,7 +70,7 @@ def __install(
     conan_manager: ConanManager = Provide[Container.conan_manager],
     target_dir: str = Provide[Container.config.target_dir],
 ):
-    builder2.loggers.configure()
+    builder2.loggers.configure("INFO" if args.output else "ERROR")
 
     try:
         toolchain_metadata = __load_toolchain_metadata(args.filename, file_manager)
@@ -83,7 +87,7 @@ def __install(
         )
 
         installation_summary.add_environment_variables(
-            builder2.environment_builder.get_installation_vars(installation_summary)
+            toolchain_metadata.global_variables
         )
 
         installation_summary.save(target_dir)
@@ -94,7 +98,7 @@ def __install(
 
 def register(subparsers):
     command_parser = subparsers.add_parser("install")
-    command_parser.set_defaults(func=__install)
+    command_parser.set_defaults(func=__install, output=True)
 
     command_parser.add_argument(
         "-f",
@@ -110,7 +114,12 @@ def register(subparsers):
         help="Path which tools will be deployed",
         required=True,
     )
-
+    command_parser.add_argument(
+        "--no-output",
+        dest="output",
+        action="store_false",
+        help="Disable all no error logs",
+    )
     command_parser.add_argument(
         "-j",
         "--max-cpus",

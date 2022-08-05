@@ -95,25 +95,43 @@ class InstallationSummary:
         return self.__components
 
     def get_component(
-        self, name: str, version=None, default_if_not_found=False
+        self, name: str, version=None, triplet=None, default_if_not_found=False
     ) -> ComponentInstallationModel:
         elements = [
             element
             for element in self.__components.values()
-            if (element.name == name and version and element.version == version)
-            or (element.name == name and not version)
+            if (
+                element.name == name
+                and version
+                and not triplet
+                and element.version == version
+            )
+            or (
+                element.name == name
+                and triplet
+                and not version
+                and element.triplet == triplet
+            )
+            or (
+                element.name == name
+                and version
+                and element.version == version
+                and triplet
+                and element.triplet == triplet
+            )
+            or (element.name == name and not version and not triplet)
         ]
         if len(elements) > 1 and not default_if_not_found:
             raise BuilderException(f"Multiple versions of {name} component")
-        elif elements:
+        elif len(elements) == 1:
             return elements[0]
-        elif default_if_not_found and not elements:
+        elif default_if_not_found and elements:
             return next(
-                [
+                (
                     element
                     for element in self.__components.values()
                     if (element.name == name and element.configuration.default)
-                ],
+                ),
                 None,
             )
         else:

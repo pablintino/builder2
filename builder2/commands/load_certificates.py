@@ -19,7 +19,7 @@ def __load_certificates(
     certificate_manager: CertificateManager = Provide[Container.certificate_manager],
 ):
     try:
-        builder2.loggers.configure()
+        builder2.loggers.configure("INFO" if args.output else "ERROR")
 
         installation_summary = command_commons.get_installation_summary_from_args(
             args, file_manager
@@ -34,8 +34,14 @@ def __load_certificates(
 
 def register(subparsers):
     command_parser = subparsers.add_parser("load-certificates")
-    command_parser.set_defaults(func=__load_certificates)
+    command_parser.set_defaults(func=__load_certificates, output=True)
     command_commons.register_installation_summary_arg_option(command_parser)
+    command_parser.add_argument(
+        "--no-output",
+        dest="output",
+        action="store_false",
+        help="Disable all no error logs",
+    )
     command_parser.add_argument(
         "-c",
         "--certs",

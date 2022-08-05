@@ -82,6 +82,7 @@ class MavenConfiguration(BaseComponentConfiguration):
 class ToolchainMetadataConfiguration:
     components: typing.Dict[str, BaseComponentConfiguration] = None
     system_packages: typing.List[str] = None
+    global_variables: typing.Dict[str, str] = None
 
 
 class BaseComponentSchema(Schema):
@@ -225,6 +226,9 @@ class ToolchainMetadataSchema(Schema):
     )
     system_packages = fields.List(
         fields.String, data_key="system-packages", load_default=[]
+    )
+    global_variables = fields.Dict(
+        keys=fields.Str(), values=fields.Str(), load_default={}
     )
 
     @post_load

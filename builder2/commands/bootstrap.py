@@ -12,6 +12,7 @@ from builder2.di import Container
 from builder2.certificate_manager import CertificateManager
 from builder2.command_line import CommandRunner
 from builder2.commands import command_commons
+from builder2.environment_builder import EnvironmentBuilder
 from builder2.exceptions import BuilderException
 from builder2.file_manager import FileManager
 
@@ -63,7 +64,7 @@ def __get_path_value(installation_summary):
     return path_value
 
 
-def __get_env_vars(installation_summary):
+def __get_env_vars(installation_summary, environment_builder, generate_variables):
     # Calling process vars are the base of the ones passed to the bootstrapped command (like USER, PATH, HOME...)
     variables = os.environ.copy()
     for key, installation in installation_summary.get_components().items():
@@ -72,6 +73,13 @@ def __get_env_vars(installation_summary):
 
     # Replace PATH with its value plus the paths in the summary
     variables["PATH"] = __get_path_value(installation_summary)
+
+    # Add generated environment variables only if desired
+    if generate_variables:
+        variables.update(
+            environment_builder.get_installation_vars(installation_summary)
+        )
+
     return variables
 
 
@@ -93,6 +101,7 @@ def __bootstrap(
     file_manager: FileManager = Provide[Container.file_manager],
     certificate_manager: CertificateManager = Provide[Container.certificate_manager],
     command_runner: CommandRunner = Provide[Container.command_runner],
+    environment_builder: EnvironmentBuilder = Provide[Container.environment_builder],
 ):
     try:
         builder2.loggers.configure("INFO" if args.output else "ERROR")
@@ -112,7 +121,9 @@ def __bootstrap(
             )
 
         bootstrap_cmd = __prepare_command(args)
-        env_vars = __get_env_vars(installation_summary)
+        env_vars = __get_env_vars(
+            installation_summary, environment_builder, args.generate_vars
+        )
         command_runner.exec_command(bootstrap_cmd, env_vars)
     except OSError as err:
         sys.exit(err.errno)
@@ -122,14 +133,24 @@ def __bootstrap(
 
 def register(subparsers):
     command_parser = subparsers.add_parser("bootstrap")
-    command_parser.set_defaults(func=__bootstrap, output=True)
+    command_parser.set_defaults(func=__bootstrap, output=True, generate_vars=False)
     command_commons.register_installation_summary_arg_option(command_parser)
-    command_commons.register_log_output_options(command_parser)
     command_parser.add_argument(
         "--certs",
         dest="certs_dir",
         help="Optional path to the directory with the certificates to load",
         required=False,
     )
-
+    command_parser.add_argument(
+        "--no-output",
+        dest="output",
+        action="store_false",
+        help="Disable all no error logs",
+    )
+    command_parser.add_argument(
+        "--generate-vars",
+        dest="generate_vars",
+        action="store_true",
+        help="Enable component generated environment variables",
+    )
     command_parser.add_argument("remainder", nargs=configargparse.REMAINDER)
