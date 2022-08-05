@@ -26,7 +26,6 @@ __logger = logging.getLogger(__name__)
 
 def __load_toolchain_metadata(path, file_manager) -> ToolchainMetadataConfiguration:
     try:
-
         return ToolchainMetadataSchema().load(
             data=file_manager.read_json_file(pathlib.Path(path).absolute())
         )

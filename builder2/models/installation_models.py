@@ -1,6 +1,7 @@
 import dataclasses
 from typing import List, Dict
 
+import datetime as datetime
 from marshmallow import fields, Schema, post_load
 
 from builder2.models.metadata_models import (
@@ -46,6 +47,7 @@ class InstallationSummaryModel:
     installation_path: str
     components: Dict[str, ComponentInstallationModel]
     system_packages: List[str]
+    installed_at: datetime.datetime
 
 
 class InstallationEnvironmentSchema(Schema):
@@ -107,6 +109,7 @@ class InstallationSummarySchema(Schema):
     system_packages = fields.List(
         fields.String, data_key="system-packages", load_default=[]
     )
+    installed_at = fields.DateTime(data_key="installed-at")
 
     @post_load
     def make_installation_summary(self, data, **kwargs):

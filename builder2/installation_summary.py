@@ -1,8 +1,10 @@
 from __future__ import annotations
+
 import logging
 import os
 from typing import List, Dict
 
+from datetime import datetime
 import marshmallow.exceptions
 from builder2.exceptions import BuilderValidationException, BuilderException
 from builder2.file_manager import FileManager
@@ -29,12 +31,14 @@ class InstallationSummary:
         self.__system_packages = []
         self.__environment_vars = {}
         self.path = path
+        self.installed_at = None
         if summary:
             # Mandatory as cannot use the rest without the installation path
             self.__installation_path = summary.installation_path
             self.__system_packages = summary.system_packages
             self.__components = summary.components
             self.__environment_vars = summary.environment.variables
+            self.installed_at = summary.installed_at
 
     @classmethod
     def from_path(cls, path: str, file_manager: FileManager) -> InstallationSummary:
@@ -71,6 +75,7 @@ class InstallationSummary:
                     variables=self.__environment_vars
                 ),
                 system_packages=self.__system_packages,
+                installed_at=datetime.now(),
             )
         )
 
