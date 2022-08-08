@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools >= 42", "versioningit", ]
 build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
@@ -8,3 +8,7 @@ addopts = "-ra -q"
 testpaths = [
     "test"
 ]
+
+[tool.versioningit]
+[tool.versioningit.write]
+file = "builder2/_version.py"

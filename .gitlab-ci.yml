@@ -1,0 +1,24 @@
+stages:
+  - build
+  - publish
+
+python-build:
+  image: python:3.9
+  stage: build
+  script:
+    - ls /etc/ssl/custom
+    - pip install build twine pytest
+    - python -m build
+    - pip install -e . && pytest
+  artifacts:
+    paths:
+      - dist/*
+    expire_in: 1 week
+
+
+python-publish:
+  image: python:3.9
+  stage: publish
+  script:
+    - pip install twine
+    - TWINE_PASSWORD=${CI_JOB_TOKEN} TWINE_USERNAME=gitlab-ci-token python -m twine upload --cert /etc/ssl/custom/root_ca.crt --repository-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi dist/*
