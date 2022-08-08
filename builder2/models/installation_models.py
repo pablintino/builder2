@@ -1,12 +1,14 @@
 import dataclasses
 from typing import List, Dict
 
-import datetime as datetime
+from datetime import datetime
 from marshmallow import fields, Schema, post_load
 
 from builder2.models.metadata_models import (
     ToolchainComponentSchema,
     BaseComponentConfiguration,
+    BasePackageInstallationConfiguration,
+    PackageInstallationConfigurationSchema,
 )
 
 
@@ -36,6 +38,18 @@ class ComponentInstallationModel:
         self.triplet = triplet
 
 
+class PackageInstallationModel:
+    def __init__(
+        self,
+        name: str,
+        version: str,
+        configuration: BasePackageInstallationConfiguration,
+    ):
+        self.version = version
+        self.name = name
+        self.configuration = configuration
+
+
 @dataclasses.dataclass
 class InstallationEnvironmentModel:
     variables: Dict[str, str]
@@ -46,8 +60,8 @@ class InstallationSummaryModel:
     environment: InstallationEnvironmentModel
     installation_path: str
     components: Dict[str, ComponentInstallationModel]
-    system_packages: List[str]
-    installed_at: datetime.datetime
+    packages: List[PackageInstallationModel]
+    installed_at: datetime
 
 
 class InstallationEnvironmentSchema(Schema):
@@ -56,7 +70,7 @@ class InstallationEnvironmentSchema(Schema):
     )
 
     @post_load
-    def make_environment(self, data, **kwargs):
+    def make_environment(self, data, **__):
         return InstallationEnvironmentModel(**data)
 
 
@@ -91,8 +105,18 @@ class ComponentInstallationSchema(Schema):
     configuration = fields.Nested(ToolchainComponentSchema, required=True)
 
     @post_load
-    def make_component_installation(self, data, **kwargs):
+    def make_component_installation(self, data, **__):
         return ComponentInstallationModel(**data)
+
+
+class PackageInstallationSchema(Schema):
+    name = fields.Str(required=True)
+    version = fields.Str(required=False, load_default=None, dump_default=None)
+    configuration = fields.Nested(PackageInstallationConfigurationSchema, required=True)
+
+    @post_load
+    def make_package_installation(self, data, **__):
+        return PackageInstallationModel(**data)
 
 
 class InstallationSummarySchema(Schema):
@@ -106,11 +130,11 @@ class InstallationSummarySchema(Schema):
         dump_default=InstallationEnvironmentModel({}),
         load_default=InstallationEnvironmentModel({}),
     )
-    system_packages = fields.List(
-        fields.String, data_key="system-packages", load_default=[]
+    packages = fields.List(
+        fields.Nested(PackageInstallationSchema), data_key="packages", load_default=[]
     )
     installed_at = fields.DateTime(data_key="installed-at", required=True)
 
     @post_load
-    def make_installation_summary(self, data, **kwargs):
+    def make_installation_summary(self, data, **__):
         return InstallationSummaryModel(**data)

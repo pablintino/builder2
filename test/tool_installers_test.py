@@ -54,7 +54,7 @@ class TestJdk:
         file_manager.extract_file.return_value = sources_directory
 
         # Mock release file version search
-        def read_file_and_search_group_side_effect(*args, **kwargs):
+        def read_file_and_search_group_side_effect(*args, **__):
             if args[0] == os.path.join(target_dir, "release"):
                 with open(
                     os.path.join(
@@ -108,7 +108,7 @@ class TestJdk:
                 os.path.join(target_dir, "bin")
             )
 
-        self.__comon_jdk_Installer_mock_assertions(
+        self.__common_jdk_installer_mock_assertions(
             cleanup_mock,
             config,
             cryptographic_provider_mock,
@@ -168,7 +168,7 @@ class TestJdk:
         file_manager.extract_file.return_value = sources_directory
 
         # Mock read version file
-        def read_file_and_search_group_side_effect(*args, **kwargs):
+        def read_file_and_search_group_side_effect(*args, **__):
             if args[0] == os.path.join(target_dir, "version.txt"):
                 with open(
                     os.path.join(
@@ -220,7 +220,7 @@ class TestJdk:
                 os.path.join(target_dir, "bin")
             )
 
-        self.__comon_jdk_Installer_mock_assertions(
+        self.__common_jdk_installer_mock_assertions(
             cleanup_mock,
             config,
             cryptographic_provider_mock,
@@ -237,7 +237,7 @@ class TestJdk:
     def __build_pathlib_bin_mock(pathlib_path_mock, target_dir):
         target_dir_base_path_mock = MagicMock()
 
-        def pathlib_side_effect(*args, **kwargs):
+        def pathlib_side_effect(*args, **__):
             if args[0] == target_dir:
                 return target_dir_base_path_mock
             return None
@@ -251,7 +251,7 @@ class TestJdk:
         return bin_path_mock
 
     @staticmethod
-    def __comon_jdk_Installer_mock_assertions(
+    def __common_jdk_installer_mock_assertions(
         cleanup_mock,
         config,
         cryptographic_provider_mock,

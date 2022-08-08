@@ -20,13 +20,13 @@ __logger = logging.getLogger()
 
 
 class FileManager:
-    class __EnhancedJSONEncoder(json.JSONEncoder):
+    class EnhancedJSONEncoder(json.JSONEncoder):
         def default(self, o):
             if dataclasses.is_dataclass(o):
                 return dataclasses.asdict(o)
             return super().default(o)
 
-    class __ProgressFileObject(io.FileIO):
+    class ProgressFileObject(io.FileIO):
         def __init__(self, path, logger, *args, **kwargs):
             self._total_size = os.path.getsize(path)
             self.__count = 0
@@ -49,26 +49,24 @@ class FileManager:
             self.__count = pos
             return io.FileIO.read(self, size)
 
-        def close(self):
-            super().close()
-
     def __init__(self):
         self._logger = logging.getLogger(self.__class__.__name__)
 
     def get_remote_file_content(self, url: str) -> str:
         self._logger.info("Fetching %s", url)
         try:
-            with urllib.request.urlopen(url) as f:
-                return f.read().decode("utf-8")
+            with urllib.request.urlopen(url) as file:
+                return file.read().decode("utf-8")
         except urllib.error.URLError as err:
             raise BuilderException(f"Error fetching {url}") from err
 
     def extract_file(self, file, target):
         self._logger.info("Start extraction of %s", file)
-        with tarfile.open(fileobj=self.__ProgressFileObject(file, self._logger)) as tar:
+        with tarfile.open(fileobj=self.ProgressFileObject(file, self._logger)) as tar:
             tar.extractall(target)
-            return os.path.join(target, os.path.commonprefix(tar.getnames()))
+            extract_path = os.path.join(target, os.path.commonprefix(tar.getnames()))
         self._logger.info("Finished extraction of %s", file)
+        return extract_path
 
     @staticmethod
     def delete_file_tree(path: str):
@@ -137,8 +135,8 @@ class FileManager:
     def write_as_json(
         cls, path: typing.Union[str, os.PathLike], content: typing.Dict[str, typing.Any]
     ):
-        with open(path, "w") as f:
-            json.dump(content, f, indent=2, cls=cls.__EnhancedJSONEncoder)
+        with open(path, "w") as file:
+            json.dump(content, file, indent=2, cls=cls.EnhancedJSONEncoder)
 
     @staticmethod
     def write_binary_file(path: typing.Union[str, os.PathLike], content: bytes):
@@ -152,8 +150,8 @@ class FileManager:
         ignore_failure: bool = False,
     ) -> str:
         try:
-            with zipfile.ZipFile(path, "r") as zf:
-                return zf.read(file_path).decode("utf-8")
+            with zipfile.ZipFile(path, "r") as file:
+                return file.read(file_path).decode("utf-8")
         except FileNotFoundError as err:
             if not ignore_failure:
                 raise err
@@ -163,8 +161,8 @@ class FileManager:
     def read_json_file(
         path: typing.Union[str, os.PathLike]
     ) -> typing.Dict[str, typing.Any]:
-        with open(path) as f:
-            return json.load(f)
+        with open(path) as file:
+            return json.load(file)
 
     @staticmethod
     def search_get_files_by_pattern(

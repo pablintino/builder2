@@ -1,6 +1,6 @@
 import configargparse
 
-from builder2.di import Container
+from builder2.di import container_instance
 from builder2 import __version__
 from builder2.commands import bootstrap, install, load_certificates, get
 
@@ -22,10 +22,8 @@ def __build_args_parser():
 def main():
     args = __build_args_parser().parse_args()
 
-    Container.config.from_dict(args.__dict__)
-
-    container = Container()
-    container.wire(
+    container_instance.config.from_dict(args.__dict__)
+    container_instance.wire(
         modules=[
             __name__,
             install.__name__,

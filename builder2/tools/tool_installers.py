@@ -4,6 +4,7 @@ import os
 import pathlib
 import re
 import tempfile
+import typing
 from urllib.parse import urlparse
 
 import builder2.utils
@@ -12,6 +13,10 @@ from builder2.cryptographic_provider import CryptographicProvider
 from builder2.exceptions import BuilderException
 from builder2.file_manager import FileManager
 from builder2.models.installation_models import ComponentInstallationModel
+from builder2.models.metadata_models import (
+    AptPackageInstallationConfiguration,
+    BasePackageInstallationConfiguration,
+)
 from builder2.package_manager import PackageManager
 from builder2.tools import CompilersSupport, JavaTools
 from builder2.tools.compilers_support import EXEC_NAME_GCC_CC, EXEC_NAME_CLANG_CC
@@ -102,7 +107,14 @@ class ToolInstaller(metaclass=abc.ABCMeta):
         )
 
     def _acquire_packages(self):
-        self._package_manager.install_packages(self._config.required_packages)
+        self._package_manager.install_packages(
+            self._config.required_packages + self._compute_tool_packages()
+        )
+
+    def _compute_tool_packages(
+        self,
+    ) -> typing.List[BasePackageInstallationConfiguration]:
+        return []
 
     def _compute_wellknown_paths(self):
         for executable in self._known_executables:
@@ -162,7 +174,8 @@ class ToolSourceInstaller(ToolInstaller):
             timeout=builder2.utils.get_command_timeout(
                 timeout if timeout else self._timeouts[0], self._time_multiplier
             ),
-            # If command is a string (typical cmake cases as it has problems detecting -D opts) use shell mode
+            # If command is a string use shell mode
+            # (typical cmake cases as it has problems detecting -D opts)
             shell=shell or (isinstance(cmd, str) and shell is None),
         )
 
@@ -230,8 +243,30 @@ class CMakeSourcesInstaller(ToolSourceInstaller):
             f"--prefix={self._target_dir}",
         ]
 
+    def _compute_tool_packages(
+        self,
+    ) -> typing.List[BasePackageInstallationConfiguration]:
+
+        return [
+            AptPackageInstallationConfiguration(
+                name="build-essential", build_transient=True, post_installation=[]
+            ),
+            AptPackageInstallationConfiguration(
+                name="libssl-dev", build_transient=False, post_installation=[]
+            ),
+        ]
+
 
 class GccSourcesInstaller(ToolSourceInstaller):
+    __BUILD_DEPENDENCIES = [
+        "bison",
+        "flex",
+        "build-essential",
+        "bzip2",
+        "autotools-dev",
+        "curl",
+    ]
+
     def __init__(self, *args, compilers_support: CompilersSupport = None, **kwargs):
         super().__init__(
             *args, in_source_build=True, timeouts=(300, 2000, 300), **kwargs
@@ -319,11 +354,28 @@ class GccSourcesInstaller(ToolSourceInstaller):
             ["contrib/download_prerequisites"], cwd=self._sources_dir, timeout=1800
         )
 
+    def _compute_tool_packages(
+        self,
+    ) -> typing.List[BasePackageInstallationConfiguration]:
+
+        return [
+            AptPackageInstallationConfiguration(
+                name=dep, build_transient=True, post_installation=[]
+            )
+            for dep in self.__BUILD_DEPENDENCIES
+        ] + [
+            AptPackageInstallationConfiguration(
+                name="zlib1g-dev", build_transient=False, post_installation=[]
+            )
+        ]
+
 
 class ClangSourcesInstaller(ToolSourceInstaller):
     __CMAKE_FILE_PATTERN = re.compile(
         r"CMAKE_PROJECT_VERSION:[a-zA-Z\d]*=([a-zA-Z\d.]*)", re.IGNORECASE
     )
+
+    __BUILD_DEPENDENCIES = ["cmake", "build-essential", "ninja-build"]
 
     def __init__(self, *args, compilers_support: CompilersSupport = None, **kwargs):
         super().__init__(
@@ -404,6 +456,19 @@ class ClangSourcesInstaller(ToolSourceInstaller):
             self._compilers_support.get_clang_wellknown_paths(self._target_dir)
         )
 
+    def _compute_tool_packages(
+        self,
+    ) -> typing.List[BasePackageInstallationConfiguration]:
+
+        return [
+            AptPackageInstallationConfiguration(
+                name=dep,
+                post_installation=[],
+                build_transient=True,
+            )
+            for dep in self.__BUILD_DEPENDENCIES
+        ]
+
 
 class CppCheckSourcesInstaller(ToolSourceInstaller):
     __VERSION_FILE_PATTERN = re.compile(
@@ -413,8 +478,14 @@ class CppCheckSourcesInstaller(ToolSourceInstaller):
         r"^CMAKE_PROJECT_VERSION:[a-zA-Z\d]*=([a-zA-Z\d.]*)$", re.IGNORECASE
     )
 
+    __BUILD_DEPENDENCIES = ["cmake", "build-essential", "ninja-build"]
+
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, known_executables=["cppcheck"], **kwargs)
+        super().__init__(
+            *args,
+            known_executables=["cppcheck"],
+            **kwargs,
+        )
 
     def _create_config_cmd(self):
         command = [
@@ -452,10 +523,34 @@ class CppCheckSourcesInstaller(ToolSourceInstaller):
         if not self._version:
             super()._compute_tool_version()
 
-    def _configure_pre_hook(self):
-        # Hardcoded mandatory dependencies if rules are compiled
-        if self._config.compile_rules:
-            self._package_manager.install_packages(["libpcre3", "libpcre3-dev"])
+    def _compute_tool_packages(
+        self,
+    ) -> typing.List[BasePackageInstallationConfiguration]:
+
+        packages = [
+            AptPackageInstallationConfiguration(
+                name=dep,
+                post_installation=[],
+                build_transient=True,
+            )
+            for dep in self.__BUILD_DEPENDENCIES
+        ]
+
+        # Add libpcre3 if rules compilation requested
+        packages += (
+            [
+                AptPackageInstallationConfiguration(
+                    name="libpcre3", post_installation=[], build_transient=False
+                ),
+                AptPackageInstallationConfiguration(
+                    name="libpcre3-dev", post_installation=[], build_transient=False
+                ),
+            ]
+            if self._config.compile_rules
+            else []
+        )
+
+        return packages
 
 
 class ValgrindSourcesInstaller(ToolSourceInstaller):
@@ -472,6 +567,22 @@ class ValgrindSourcesInstaller(ToolSourceInstaller):
 
         if not self._version:
             super()._compute_tool_version()
+
+    def _compute_tool_packages(
+        self,
+    ) -> typing.List[BasePackageInstallationConfiguration]:
+        return [
+            AptPackageInstallationConfiguration(
+                name="build-essential",
+                post_installation=[],
+                build_transient=True,
+            ),
+            AptPackageInstallationConfiguration(
+                name="libc6-dbg",
+                post_installation=[],
+                build_transient=False,
+            ),
+        ]
 
 
 class DownloadOnlySourcesInstaller(ToolInstaller):
@@ -499,7 +610,7 @@ class DownloadOnlyCompilerInstaller(DownloadOnlySourcesInstaller):
     def __get_binary_path(self):
         if EXEC_NAME_CLANG_CC in self._wellknown_paths:
             return self._wellknown_paths[EXEC_NAME_CLANG_CC]
-        elif EXEC_NAME_GCC_CC in self._wellknown_paths:
+        if EXEC_NAME_GCC_CC in self._wellknown_paths:
             return self._wellknown_paths[EXEC_NAME_GCC_CC]
 
         return None

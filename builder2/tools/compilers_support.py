@@ -51,10 +51,7 @@ class CompilersSupport:
                 and self._file_manager.file_is_executable(exec_path)
                 # Discard ignored executables
                 and all(
-                    [
-                        (to_ignore_name not in path.stem)
-                        for to_ignore_name in ignore_names
-                    ]
+                    (to_ignore_name not in path.stem) for to_ignore_name in ignore_names
                 )
                 and (
                     path.stem.endswith(f"-{target_name}")

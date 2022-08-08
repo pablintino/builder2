@@ -5,9 +5,24 @@ from marshmallow import Schema, fields, post_load
 from marshmallow_oneofschema import OneOfSchema
 
 
-# Note: "Hacky" solution here to avoid using kw_only=True in dataclasses that makes python > 3.10 mandatory
-#       As classes are filled by marshmallow mandatory fields are warrantied by marshmallow instead of
-#       python dataclasses. This way Python 3.7> can be used
+@dataclasses.dataclass
+class BasePackageInstallationConfiguration:
+    name: str = None
+    version: str = None
+    build_transient: bool = False
+    post_installation: typing.List[str] = None
+
+
+@dataclasses.dataclass
+class PipPackageInstallationConfiguration(BasePackageInstallationConfiguration):
+    index: str = None
+
+
+@dataclasses.dataclass
+class AptPackageInstallationConfiguration(BasePackageInstallationConfiguration):
+    pass
+
+
 @dataclasses.dataclass
 class BaseComponentConfiguration:
     name: str = None
@@ -81,8 +96,51 @@ class MavenConfiguration(BaseComponentConfiguration):
 @dataclasses.dataclass
 class ToolchainMetadataConfiguration:
     components: typing.Dict[str, BaseComponentConfiguration] = None
-    system_packages: typing.List[str] = None
+    packages: typing.List[BasePackageInstallationConfiguration] = None
     global_variables: typing.Dict[str, str] = None
+
+
+class BasePackageInstallationSchema(Schema):
+    name = fields.Str(required=True)
+    version = fields.Str(required=False, load_default=None)
+    build_transient = fields.Boolean(
+        data_key="build-transient",
+        required=False,
+        load_default=False,
+        dump_default=False,
+    )
+    post_installation = fields.List(
+        fields.String, data_key="post-installation", load_default=[]
+    )
+
+
+class PipPackageInstallationSchema(BasePackageInstallationSchema):
+    index = fields.String(required=False, load_default=None, dump_default=None)
+
+    @post_load
+    def make_pip_config(self, data, **__):
+        return PipPackageInstallationConfiguration(**data)
+
+
+class AptPackageInstallationSchema(BasePackageInstallationSchema):
+    @post_load
+    def make_atp_config(self, data, **__):
+        return AptPackageInstallationConfiguration(**data)
+
+
+class PackageInstallationConfigurationSchema(OneOfSchema):
+    type_schemas = {
+        "pip": PipPackageInstallationSchema,
+        "apt": AptPackageInstallationSchema,
+    }
+
+    def get_obj_type(self, obj):
+        if isinstance(obj, PipPackageInstallationConfiguration):
+            return "pip"
+        if isinstance(obj, AptPackageInstallationConfiguration):
+            return "apt"
+
+        raise Exception("Unknown object type: {}".format(obj.__class__.__name__))
 
 
 class BaseComponentSchema(Schema):
@@ -97,7 +155,9 @@ class BaseComponentSchema(Schema):
     )
     group = fields.Str(required=False, load_default=None)
     required_packages = fields.List(
-        fields.String, data_key="required-packages", load_default=[]
+        fields.Nested(PackageInstallationConfigurationSchema),
+        data_key="required-packages",
+        load_default=[],
     )
     version = fields.Str(required=False, load_default=None)
 
@@ -122,7 +182,7 @@ class GccComponentSchema(CompilerBuildSchema):
     )
 
     @post_load
-    def make_gcc_config(self, data, **kwargs):
+    def make_gcc_config(self, data, **__):
         return GccBuildConfiguration(**data)
 
 
@@ -131,7 +191,7 @@ class ClangComponentSchema(CompilerBuildSchema):
     runtimes = fields.List(fields.String, required=False, load_default=[])
 
     @post_load
-    def make_clang_config(self, data, **kwargs):
+    def make_clang_config(self, data, **__):
         return ClangBuildConfiguration(**data)
 
 
@@ -141,43 +201,43 @@ class CppCheckComponentSchema(BaseComponentSchema):
     )
 
     @post_load
-    def make_cppcheck_config(self, data, **kwargs):
+    def make_cppcheck_config(self, data, **__):
         return CppCheckBuildConfiguration(**data)
 
 
 class ValgrindComponentSchema(BaseComponentSchema):
     @post_load
-    def make_valgrind_config(self, data, **kwargs):
+    def make_valgrind_config(self, data, **__):
         return ValgrindBuildConfiguration(**data)
 
 
 class DownloadOnlyCompilerComponentSchema(BaseComponentSchema):
     @post_load
-    def make_download_only_compiler_config(self, data, **kwargs):
+    def make_download_only_compiler_config(self, data, **__):
         return DownloadOnlyCompilerConfiguration(**data)
 
 
 class DownloadOnlyComponentSchema(BaseComponentSchema):
     @post_load
-    def make_download_only_config(self, data, **kwargs):
+    def make_download_only_config(self, data, **__):
         return DownloadOnlyConfiguration(**data)
 
 
 class CmakeBuildComponentSchema(BaseComponentSchema):
     @post_load
-    def make_cmake_config(self, data, **kwargs):
+    def make_cmake_config(self, data, **__):
         return CmakeBuildConfiguration(**data)
 
 
 class JdkComponentSchema(BaseComponentSchema):
     @post_load
-    def make_jdk_config(self, data, **kwargs):
+    def make_jdk_config(self, data, **__):
         return JdkConfiguration(**data)
 
 
 class MavenComponentSchema(BaseComponentSchema):
     @post_load
-    def make_maven_config(self, data, **kwargs):
+    def make_maven_config(self, data, **__):
         return MavenConfiguration(**data)
 
 
@@ -198,39 +258,40 @@ class ToolchainComponentSchema(OneOfSchema):
     def get_obj_type(self, obj):
         if isinstance(obj, GccBuildConfiguration):
             return "gcc-build"
-        elif isinstance(obj, ClangBuildConfiguration):
+        if isinstance(obj, ClangBuildConfiguration):
             return "clang-build"
-        elif isinstance(obj, SourceBuildConfiguration):
+        if isinstance(obj, SourceBuildConfiguration):
             return "source-build"
-        elif isinstance(obj, CppCheckBuildConfiguration):
+        if isinstance(obj, CppCheckBuildConfiguration):
             return "cppcheck-build"
-        elif isinstance(obj, ValgrindBuildConfiguration):
+        if isinstance(obj, ValgrindBuildConfiguration):
             return "valgrind-build"
-        elif isinstance(obj, DownloadOnlyCompilerConfiguration):
+        if isinstance(obj, DownloadOnlyCompilerConfiguration):
             return "download-only-compiler"
-        elif isinstance(obj, DownloadOnlyConfiguration):
+        if isinstance(obj, DownloadOnlyConfiguration):
             return "download-only"
-        elif isinstance(obj, CmakeBuildConfiguration):
+        if isinstance(obj, CmakeBuildConfiguration):
             return "cmake-build"
-        elif isinstance(obj, JdkConfiguration):
+        if isinstance(obj, JdkConfiguration):
             return "jdk"
-        elif isinstance(obj, MavenConfiguration):
+        if isinstance(obj, MavenConfiguration):
             return "maven"
-        else:
-            raise Exception("Unknown object type: {}".format(obj.__class__.__name__))
+
+        raise Exception("Unknown object type: {}".format(obj.__class__.__name__))
 
 
 class ToolchainMetadataSchema(Schema):
     components = fields.Dict(
         keys=fields.Str(), values=fields.Nested(ToolchainComponentSchema)
     )
-    system_packages = fields.List(
-        fields.String, data_key="system-packages", load_default=[]
-    )
+    packages = fields.List(fields.Nested(PackageInstallationConfigurationSchema), load_default=[])
     global_variables = fields.Dict(
-        keys=fields.Str(), values=fields.Str(), load_default={}
+        data_key="global-variables",
+        keys=fields.Str(),
+        values=fields.Str(),
+        load_default={},
     )
 
     @post_load
-    def make_toolchain_config(self, data, **kwargs):
+    def make_toolchain_config(self, data, **__):
         return ToolchainMetadataConfiguration(**data)

@@ -66,9 +66,10 @@ def __get_path_value(installation_summary):
 
 
 def __get_env_vars(installation_summary, environment_builder, generate_variables):
-    # Calling process vars are the base of the ones passed to the bootstrapped command (like USER, PATH, HOME...)
+    # Calling process vars are the base of the ones passed to the
+    # bootstrapped command (like USER, PATH, HOME...)
     variables = os.environ.copy()
-    for key, installation in installation_summary.get_components().items():
+    for installation in installation_summary.get_components().values():
         variables.update(installation.environment_vars)
     variables.update(installation_summary.get_environment_variables())
 
@@ -81,7 +82,8 @@ def __get_env_vars(installation_summary, environment_builder, generate_variables
             environment_builder.get_installation_vars(installation_summary)
         )
 
-    # If the builder installation path env var is not present add it to simplify other commands after bootstrapped
+    # If the builder installation path env var is not present add it
+    # to simplify other commands after bootstrapped
     if constants.INSTALLATION_SUMMARY_ENV_VAR not in variables:
         variables[constants.INSTALLATION_SUMMARY_ENV_VAR] = installation_summary.path
 
@@ -121,7 +123,8 @@ def __bootstrap(
             args, file_manager
         )
 
-        # If cert path is given and exists go install them (if path doesn't exist an exception is raised internally)
+        # If cert path is given and exists go install them
+        # (if path doesn't exist an exception is raised internally)
         if args.certs_dir and os.path.exists(args.certs_dir):
             certificate_manager.install_all_certificates(
                 installation_summary, args.certs_dir

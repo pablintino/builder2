@@ -9,19 +9,7 @@ from builder2.conan_manager import ConanManager
 from builder2.cryptographic_provider import CryptographicProvider
 from builder2.environment_builder import EnvironmentBuilder
 from builder2.file_manager import FileManager
-from builder2.models.metadata_models import (
-    BaseComponentConfiguration,
-    GccBuildConfiguration,
-    CmakeBuildConfiguration,
-    DownloadOnlyConfiguration,
-    CppCheckBuildConfiguration,
-    SourceBuildConfiguration,
-    ClangBuildConfiguration,
-    ValgrindBuildConfiguration,
-    DownloadOnlyCompilerConfiguration,
-    JdkConfiguration,
-    MavenConfiguration,
-)
+from builder2.models.metadata_models import BaseComponentConfiguration
 from builder2.package_manager import PackageManager
 from builder2.tools import (
     JdkInstaller,
@@ -174,17 +162,18 @@ class Container(containers.DeclarativeContainer):
         time_multiplier=config.timout_mult,
     )
 
-    installation_summary = providers.Selector()
+    tool_installers = providers.Aggregate(
+        GccBuildConfiguration=gcc_sources_installer_factory,
+        CmakeBuildConfiguration=cmake_sources_installer_factory,
+        DownloadOnlyConfiguration=download_only_sources_installer_factory,
+        CppCheckBuildConfiguration=cppcheck_sources_installer_factory,
+        SourceBuildConfiguration=tool_source_installer_factory,
+        ClangBuildConfiguration=clang_sources_installer_factory,
+        ValgrindBuildConfiguration=valgrind_sources_installer_factory,
+        DownloadOnlyCompilerConfiguration=download_only_compiler_installer_factory,
+        JdkConfiguration=jdk_installer_factory,
+        MavenConfiguration=maven_installer_factory,
+    )
 
-    tool_installers = {
-        GccBuildConfiguration: gcc_sources_installer_factory,
-        CmakeBuildConfiguration: cmake_sources_installer_factory,
-        DownloadOnlyConfiguration: download_only_sources_installer_factory,
-        CppCheckBuildConfiguration: cppcheck_sources_installer_factory,
-        SourceBuildConfiguration: tool_source_installer_factory,
-        ClangBuildConfiguration: clang_sources_installer_factory,
-        ValgrindBuildConfiguration: valgrind_sources_installer_factory,
-        DownloadOnlyCompilerConfiguration: download_only_compiler_installer_factory,
-        JdkConfiguration: jdk_installer_factory,
-        MavenConfiguration: maven_installer_factory,
-    }
+
+container_instance = Container()

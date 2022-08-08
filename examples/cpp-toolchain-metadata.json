@@ -1,5 +1,33 @@
 {
-  "system-packages": [
+  "packages": [
+    {
+      "type": "pip",
+      "name": "conan",
+      "post-installation": [
+        "conan config init",
+        "conan profile update settings.compiler.libcxx=libstdc++11 default"
+      ]
+    },
+    {
+      "type": "apt",
+      "name": "ca-certificates"
+    },
+    {
+      "type": "apt",
+      "name": "curl"
+    },
+    {
+      "type": "apt",
+      "name": "git"
+    },
+    {
+      "type": "apt",
+      "name": "make"
+    },
+    {
+      "type": "apt",
+      "name": "ninja-build"
+    }
   ],
   "components": {
     "gcc-11": {
@@ -12,10 +40,6 @@
         "c++",
         "lto"
       ],
-      "required-packages": [
-
-      ],
-      "suffix-version": false,
       "conan-profile": true,
       "config-opts": [
         "--disable-vtable-verify",
@@ -51,10 +75,6 @@
         "c++",
         "lto"
       ],
-      "required-packages": [
-
-      ],
-      "suffix-version": false,
       "conan-profile": true,
       "config-opts": [
         "--disable-vtable-verify",
@@ -93,16 +113,13 @@
     "cppcheck-2.6": {
       "type": "cppcheck-build",
       "name": "cppcheck",
-      "compile-rules": false,
+      "compile-rules": true,
       "url": "https://github.com/danmar/cppcheck/archive/refs/tags/2.6.tar.gz"
     },
     "valgrind-3.18.1": {
       "type": "valgrind-build",
       "name": "valgrind",
-      "url": "https://sourceware.org/pub/valgrind/valgrind-3.18.1.tar.bz2",
-      "required-packages": [
-
-      ]
+      "url": "https://sourceware.org/pub/valgrind/valgrind-3.18.1.tar.bz2"
     },
     "clang-13": {
       "group": "compilers",

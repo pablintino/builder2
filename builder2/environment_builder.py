@@ -32,10 +32,7 @@ class EnvironmentBuilder:
         cls, installation_summary: InstallationSummary
     ) -> typing.Dict[str, str]:
         variables = {}
-        for (
-            component_key,
-            component_data,
-        ) in installation_summary.get_components().items():
+        for component_data in installation_summary.get_components().values():
             if component_data.path:
 
                 sanitized_name = replace_non_alphanumeric(component_data.name, "_")
@@ -61,8 +58,9 @@ class EnvironmentBuilder:
                         for version in component_versions
                     )
 
-                    # If there is only one version per arch don't add the version number to simplify names and
-                    # made vars usable (without name change) between component version upgrades/downgrades
+                    # If there is only one version per arch don't add the version number
+                    # to simplify names and made vars usable (without name change) between
+                    # component version upgrades/downgrades
                     version_per_triplet = len(
                         [
                             version
@@ -79,7 +77,8 @@ class EnvironmentBuilder:
                         triplet=sanitized_triplet if not all_same_triplet else None,
                     )
 
-                    # If flagged with "default" in metadata json add a simplified environment variable
+                    # If flagged with "default" in metadata json add a simplified
+                    # environment variable
                     if component_data.configuration.default:
                         cls.__append_component_path_var(
                             variables, sanitized_name, component_data.path

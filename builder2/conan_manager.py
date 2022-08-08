@@ -146,7 +146,8 @@ class ConanManager:
 
                 profile_path = os.path.join(
                     conan_profiles_path,
-                    f"cpp-builder-{replace_non_alphanumeric(component_key, '-')}-{release_type.lower()}.profile",
+                    f"cpp-builder-{replace_non_alphanumeric(component_key, '-')}"
+                    f"-{release_type.lower()}.profile",
                 )
                 component_installation.conan_profiles[
                     release_type.lower()

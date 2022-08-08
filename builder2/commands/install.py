@@ -9,7 +9,7 @@ from dependency_injector.wiring import inject, Provide
 import builder2.loggers
 import builder2.environment_builder
 from builder2.file_manager import FileManager
-from builder2.di import Container
+from builder2.di import Container, container_instance
 from builder2.package_manager import PackageManager
 from builder2.commands import command_commons
 from builder2.exceptions import BuilderException, BuilderValidationException
@@ -36,7 +36,7 @@ def __load_toolchain_metadata(path, file_manager) -> ToolchainMetadataConfigurat
     except marshmallow.exceptions.ValidationError as err:
         raise BuilderValidationException(
             "Validation issues in toolchain metadata", err.messages_dict
-        )
+        ) from err
 
 
 def __install_components(
@@ -46,19 +46,14 @@ def __install_components(
     conan_manager: ConanManager,
 ):
     for component_key, component_config in components.items():
-        with Container.tool_installers[type(component_config)](
-            component_key, component_config, target_dir
+        with container_instance.tool_installers(
+            type(component_config).__name__, component_key, component_config, target_dir
         ) as installer:
             component_installation = installer.run_installation()
             conan_manager.add_profiles_to_component(
                 component_key, component_installation, target_dir
             )
             installation_summary.add_component(component_key, component_installation)
-
-
-def __install_system_packages(system_packages, installation_summary, package_manager):
-    package_manager.install_packages(system_packages)
-    installation_summary.add_system_packages(system_packages)
 
 
 @inject
@@ -75,9 +70,9 @@ def __install(
         toolchain_metadata = __load_toolchain_metadata(args.filename, file_manager)
         installation_summary = InstallationSummary(file_manager)
 
-        __install_system_packages(
-            toolchain_metadata.system_packages, installation_summary, package_manager
-        )
+        # Install globally declared packages
+        package_manager.install_packages(toolchain_metadata.packages)
+
         __install_components(
             toolchain_metadata.components,
             target_dir,
@@ -87,6 +82,13 @@ def __install(
 
         installation_summary.add_environment_variables(
             toolchain_metadata.global_variables
+        )
+
+        # Ensure build transient packages are removed before saving the installation summary
+        package_manager.clean_transient()
+
+        installation_summary.add_packages(
+            list(package_manager.installed_packages.values())
         )
 
         installation_summary.save(target_dir)

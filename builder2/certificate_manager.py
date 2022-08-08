@@ -55,10 +55,12 @@ class CertificateManager:
 
     def __install_system_certs(self, certs: List[x509.Certificate]):
         for cert in certs:
-            cn = cert.subject.get_attributes_for_oid(x509.oid.NameOID.COMMON_NAME)
-            if not cn:
+            common_name = cert.subject.get_attributes_for_oid(
+                x509.oid.NameOID.COMMON_NAME
+            )
+            if not common_name:
                 raise BuilderException("Cannot get name for import certificate")
-            sanitized_cn = replace_non_alphanumeric(cn[0].value, "").lower()
+            sanitized_cn = replace_non_alphanumeric(common_name[0].value, "").lower()
             cert_path = os.path.join(self.__SYSTEM_CA_LOCATION, f"{sanitized_cn}.crt")
             self._file_manager.write_text_file(
                 cert_path,
@@ -81,11 +83,11 @@ class CertificateManager:
         certificate: x509.Certificate,
         name: str = None,
     ):
-        cn = certificate.subject.get_attributes_for_oid(x509.oid.NameOID.COMMON_NAME)[
-            0
-        ].value
+        common_name = certificate.subject.get_attributes_for_oid(
+            x509.oid.NameOID.COMMON_NAME
+        )[0].value
         if not name:
-            name = cn.replace(" ", "").lower()
+            name = common_name.replace(" ", "").lower()
 
         # JDKs above 8 has a -cacerts option that allows not providing an explicit cacerts path
         keystore_opts = (
@@ -112,8 +114,8 @@ class CertificateManager:
                 + keystore_opts
             )
             self._logger.debug(
-                "Certificate with CN %s installed in JDK",
-                cn,
+                "Certificate with CN %s installed in JDK %s",
+                common_name,
                 installation_summary.version,
             )
 

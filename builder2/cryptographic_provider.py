@@ -22,20 +22,21 @@ class CryptographicProvider:
     def __get_hash_algorithm_for_string(self, hash_str: str):
         if self.__md5_string_regex.match(hash_str):
             return hashlib.md5()
-        elif self.__sha1_string_regex.match(hash_str):
+        if self.__sha1_string_regex.match(hash_str):
             return hashlib.sha1()
-        elif self.__sha256_string_regex.match(hash_str):
+        if self.__sha256_string_regex.match(hash_str):
             return hashlib.sha256()
-        elif self.__sha512_string_regex.match(hash_str):
+        if self.__sha512_string_regex.match(hash_str):
             return hashlib.sha512()
+
         raise BuilderException(f"Cannot infer hash algorithm for {hash_str}")
 
     def compute_file_hash(self, path: typing.Union[str, os.PathLike], algorithm) -> str:
-        with open(path, "rb") as f:
-            fb = f.read(self.__HASH_CHUNK_SIZE)
-            while len(fb) > 0:
-                algorithm.update(fb)
-                fb = f.read(self.__HASH_CHUNK_SIZE)
+        with open(path, "rb") as file:
+            file_bytes = file.read(self.__HASH_CHUNK_SIZE)
+            while len(file_bytes) > 0:
+                algorithm.update(file_bytes)
+                file_bytes = file.read(self.__HASH_CHUNK_SIZE)
 
         return algorithm.hexdigest()
 
@@ -43,19 +44,20 @@ class CryptographicProvider:
         return self.compute_file_hash(path, hashlib.sha1())
 
     def validate_file_hash(
-        self, file_path: typing.Union[str, os.PathLike], expected_hash_string: str
+        self, file_path: typing.Union[str, os.PathLike], hash_or_url_string: str
     ):
-        parse_result = urllib.parse.urlparse(expected_hash_string)
+        parse_result = urllib.parse.urlparse(hash_or_url_string)
         if parse_result.netloc and parse_result.scheme:
-            remote_hash = self._file_manager.get_remote_file_content(
-                expected_hash_string
+            expected_hash = self._file_manager.get_remote_file_content(
+                hash_or_url_string
             )
-            algorithm = self.__get_hash_algorithm_for_string(remote_hash)
+            algorithm = self.__get_hash_algorithm_for_string(expected_hash)
         else:
-            algorithm = self.__get_hash_algorithm_for_string(expected_hash_string)
+            algorithm = self.__get_hash_algorithm_for_string(hash_or_url_string)
+            expected_hash = hash_or_url_string
 
         file_hash = self.compute_file_hash(file_path, algorithm)
-        if file_hash != remote_hash:
+        if file_hash != expected_hash:
             raise BuilderException(
-                f"File {file_hash} hash is not the expected one {remote_hash}"
+                f"File {file_hash} hash is not the expected one {expected_hash}"
             )

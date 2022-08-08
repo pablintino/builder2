@@ -28,14 +28,12 @@ class InstallationSummary:
     ):
         self._file_manager = file_manager
         self.__components = {}
-        self.__system_packages = []
+        self.__packages = []
         self.__environment_vars = {}
         self.path = path
         self.installed_at = None
         if summary:
-            # Mandatory as cannot use the rest without the installation path
-            self.__installation_path = summary.installation_path
-            self.__system_packages = summary.system_packages
+            self.__packages = summary.packages
             self.__components = summary.components
             self.__environment_vars = summary.environment.variables
             self.installed_at = summary.installed_at
@@ -74,7 +72,7 @@ class InstallationSummary:
                 environment=InstallationEnvironmentModel(
                     variables=self.__environment_vars
                 ),
-                system_packages=self.__system_packages,
+                packages=self.__packages,
                 installed_at=datetime.now(),
             )
         )
@@ -84,11 +82,8 @@ class InstallationSummary:
     def add_component(self, tool_key: str, tool_summary: ComponentInstallationModel):
         self.__components[tool_key] = tool_summary
 
-    def add_system_package(self, name: str):
-        self.__system_packages.append(name)
-
-    def add_system_packages(self, names: List[str]):
-        self.__system_packages.extend(names)
+    def add_packages(self, names: List[str]):
+        self.__packages.extend(names)
 
     def add_environment_variable(self, name: str, value: str):
         self.__environment_vars[name] = value
@@ -132,9 +127,9 @@ class InstallationSummary:
         ]
         if len(elements) > 1 and not default_if_not_found:
             raise BuilderException(f"Multiple versions of {name} component")
-        elif len(elements) == 1:
+        if len(elements) == 1:
             return elements[0]
-        elif default_if_not_found and elements:
+        if default_if_not_found and elements:
             return next(
                 (
                     element
@@ -143,8 +138,8 @@ class InstallationSummary:
                 ),
                 None,
             )
-        else:
-            return None
+
+        return None
 
     def get_components_by_type(
         self, component_type: type

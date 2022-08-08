@@ -16,7 +16,7 @@ __logger = logging.getLogger(__name__)
 
 def __print_result(args, data):
     if data:
-        to_print = data if type(data) == str else os.linesep.join(data)
+        to_print = data if isinstance(data, str) else os.linesep.join(data)
         if args.output:
             __logger.info("Query result: %s", to_print)
         else:
