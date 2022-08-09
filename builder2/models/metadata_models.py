@@ -284,7 +284,9 @@ class ToolchainMetadataSchema(Schema):
     components = fields.Dict(
         keys=fields.Str(), values=fields.Nested(ToolchainComponentSchema)
     )
-    packages = fields.List(fields.Nested(PackageInstallationConfigurationSchema), load_default=[])
+    packages = fields.List(
+        fields.Nested(PackageInstallationConfigurationSchema), load_default=[]
+    )
     global_variables = fields.Dict(
         data_key="global-variables",
         keys=fields.Str(),
