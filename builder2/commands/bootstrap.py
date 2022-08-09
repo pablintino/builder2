@@ -88,10 +88,10 @@ def __get_env_vars(installation_summary, environment_builder, generate_variables
         variables[constants.INSTALLATION_SUMMARY_ENV_VAR] = installation_summary.path
 
     # Add a prefix to the shell to make obvious that the shell is bootstrapped
-    if constants.SHELL_PROMP_FORMAT_ENV_VAR in variables:
+    if constants.SHELL_PROMPT_FORMAT_ENV_VAR in variables:
         variables[
-            constants.SHELL_PROMP_FORMAT_ENV_VAR
-        ] = f"[b] {variables[constants.SHELL_PROMP_FORMAT_ENV_VAR]}"
+            constants.SHELL_PROMPT_FORMAT_ENV_VAR
+        ] = f"[b] {variables[constants.SHELL_PROMPT_FORMAT_ENV_VAR]}"
 
     return variables
 
