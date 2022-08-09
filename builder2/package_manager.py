@@ -49,6 +49,7 @@ class PackageManager:
             package_command_arg = f"{package_command_arg}=={package.version}"
         command = [sys.executable, "-m", "pip", "uninstall", "-y", package_command_arg]
         self._command_runner.run_process(command)
+        del self.installed_packages[self.__build_package_key(package)]
 
     def __update_apt_sources(self):
         self._logger.info("Running package cache update")
@@ -89,7 +90,7 @@ class PackageManager:
             ["apt-get", "remove", "-y", "--purge"] + package_to_uninstall
         )
 
-        self.__run_post_commands(package.post_installation)
+        del self.installed_packages[self.__build_package_key(package)]
 
     @classmethod
     def __build_package_key(cls, package: BasePackageInstallationConfiguration):
