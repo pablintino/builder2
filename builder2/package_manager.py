@@ -17,6 +17,7 @@ class PackageManager:
         self._logger = logging.getLogger()
         self._apt_update_ran = False
         self.installed_packages = {}
+        self.__uninstalled_packages = {}
 
     def __install_pip_package(
         self, package: PipPackageInstallationConfiguration
@@ -49,7 +50,10 @@ class PackageManager:
             package_command_arg = f"{package_command_arg}=={package.version}"
         command = [sys.executable, "-m", "pip", "uninstall", "-y", package_command_arg]
         self._command_runner.run_process(command)
-        del self.installed_packages[self.__build_package_key(package)]
+
+        package_key = self.__build_package_key(package)
+        del self.installed_packages[package_key]
+        self.__uninstalled_packages[package_key] = package
 
     def __update_apt_sources(self):
         self._logger.info("Running package cache update")
@@ -76,9 +80,9 @@ class PackageManager:
 
     def __cleanup_apt_orphans(self):
         if any(
-            isinstance(package.configuration, AptPackageInstallationConfiguration)
-            and package.configuration.build_transient
-            for package in self.installed_packages.values()
+            isinstance(package, AptPackageInstallationConfiguration)
+            and package.build_transient
+            for package in self.__uninstalled_packages.values()
         ):
             self._command_runner.run_process(["apt-get", "autoremove", "-y"])
 
@@ -90,7 +94,9 @@ class PackageManager:
             ["apt-get", "remove", "-y", "--purge"] + package_to_uninstall
         )
 
-        del self.installed_packages[self.__build_package_key(package)]
+        package_key = self.__build_package_key(package)
+        del self.installed_packages[package_key]
+        self.__uninstalled_packages[package_key] = package
 
     @classmethod
     def __build_package_key(cls, package: BasePackageInstallationConfiguration):
