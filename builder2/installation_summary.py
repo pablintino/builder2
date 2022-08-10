@@ -134,7 +134,13 @@ class InstallationSummary:
                 (
                     element
                     for element in self.__components.values()
-                    if (element.name == name and element.configuration.default)
+                    # Default to only a component of the same triplet. Never return a default component
+                    # of a different triplet of the indicated one
+                    if (
+                        element.name == name
+                        and element.configuration.default
+                        and (triplet is None or triplet == element.triplet)
+                    )
                 ),
                 None,
             )

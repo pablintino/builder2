@@ -77,7 +77,10 @@ def __get_variable(
         )
 
         component = installation_summary.get_component(
-            args.component, version=args.version, default_if_not_found=True
+            args.component,
+            version=args.version,
+            triplet=args.triplet,
+            default_if_not_found=True,
         )
 
         if component:
