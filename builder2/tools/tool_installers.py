@@ -82,7 +82,7 @@ class ToolInstaller(metaclass=abc.ABCMeta):
 
     def _compute_tool_version(self):
         if not self._config.version:
-            BuilderException(
+            raise BuilderException(
                 f"Cannot determine component version. Component key: {self.tool_key}"
             )
         self._version = self._config.version
@@ -644,7 +644,7 @@ class DownloadOnlyCompilerInstaller(DownloadOnlySourcesInstaller):
 
 
 class JdkInstaller(DownloadOnlySourcesInstaller):
-    __JAVA_RELEASE_FILE_VERSION_REGEX = re.compile('JAVA_VERSION="([\\d.]*)"')
+    __JAVA_RELEASE_FILE_VERSION_REGEX = re.compile('JAVA_VERSION="([\\d.-_+a-zA-Z]*)"')
 
     def __init__(self, *args, java_tools: JavaTools = None, **kwargs):
         super().__init__(*args, **kwargs)
