@@ -222,7 +222,9 @@ class CMakeSourcesInstaller(ToolSourceInstaller):
     __VERSION_REGEX = re.compile(r'CMake_VERSION\s"([a-zA-Z\d.]*)"')
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, known_executables=["cmake"], **kwargs)
+        super().__init__(
+            *args, known_executables=["cmake"], timeouts=(300, 1800, 300), **kwargs
+        )
 
     def _compute_tool_version(self):
         version_files = self._file_manager.search_get_files_by_pattern(
@@ -269,7 +271,7 @@ class GccSourcesInstaller(ToolSourceInstaller):
 
     def __init__(self, *args, compilers_support: CompilersSupport = None, **kwargs):
         super().__init__(
-            *args, in_source_build=True, timeouts=(300, 2000, 300), **kwargs
+            *args, in_source_build=True, timeouts=(300, 2100, 300), **kwargs
         )
         self._compilers_support = compilers_support
 
@@ -379,7 +381,7 @@ class ClangSourcesInstaller(ToolSourceInstaller):
 
     def __init__(self, *args, compilers_support: CompilersSupport = None, **kwargs):
         super().__init__(
-            *args, in_source_build=True, timeouts=(300, 3400, 300), **kwargs
+            *args, in_source_build=True, timeouts=(300, 3600, 300), **kwargs
         )
         self._compilers_support = compilers_support
 

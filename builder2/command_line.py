@@ -70,12 +70,12 @@ class CommandRunner:
                 return pipe.output
         except subprocess.CalledProcessError:
             self._logger.debug(
-                "Failed to execute [%s]. Exit code non-zero.", command_list
+                "Failed to execute %s. Exit code non-zero.", command_list
             )
             raise
         except subprocess.TimeoutExpired:
             self._logger.error(
-                "Failed to execute [%s]. Timeout (%d)", command_list, timeout
+                "Failed to execute %s. Timeout (%d)", command_list, timeout
             )
             raise
         finally:
