@@ -32,6 +32,16 @@ def register_installation_summary_arg_option(command_parser):
     )
 
 
+def register_certificates_arg_option(command_parser, required=False):
+    command_parser.add_argument(
+        "--certs",
+        dest="certs_dir",
+        help="Path to the directory with the certificates to load",
+        env_var=constants.CERTIFICATES_ENV_VAR,
+        required=required,
+    )
+
+
 def manage_builder_exceptions(exception):
     if isinstance(exception, BuilderValidationException):
         __logger.error(exception.message)

@@ -12,3 +12,7 @@ def configure(level="INFO"):
     logger.addHandler(console)
     console.setFormatter(formatter)
     console.setLevel(level)
+
+
+def disable():
+    logging.getLogger().disabled = True

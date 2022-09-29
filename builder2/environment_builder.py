@@ -1,5 +1,7 @@
+import os
 import typing
 
+from builder2 import constants
 from builder2.utils import replace_non_alphanumeric
 from builder2.installation_summary import InstallationSummary
 
@@ -27,8 +29,19 @@ class EnvironmentBuilder:
         var_name = (var_name + "_DIR").upper()
         variables[var_name] = path
 
+    @staticmethod
+    def __get_path_value(installation_summary):
+        paths = os.environ.get("PATH", "").strip(":").split(":")
+        for component_installation in installation_summary.get_components().values():
+            # Filter paths to include only non-already included ones
+            component_paths = [
+                path for path in component_installation.path_dirs if path not in paths
+            ]
+            paths.extend(component_paths)
+        return ":".join(paths).strip(":")
+
     @classmethod
-    def get_installation_vars(
+    def __build_component_generated_variables(
         cls, installation_summary: InstallationSummary
     ) -> typing.Dict[str, str]:
         variables = {}
@@ -112,5 +125,41 @@ class EnvironmentBuilder:
                             prefix="CONAN_PROFILE",
                             suffix=replace_non_alphanumeric(profile, "_"),
                         )
+
+        return variables
+
+    @classmethod
+    def build_environment_variables(
+        cls,
+        installation_summary: InstallationSummary,
+        generate_variables: bool,
+        append: bool = True,
+    ):
+        variables = os.environ.copy() if append else {}
+        for installation in installation_summary.get_components().values():
+            variables.update(installation.environment_vars)
+        variables.update(installation_summary.get_environment_variables())
+
+        # Replace PATH with its value plus the paths in the summary
+        variables["PATH"] = cls.__get_path_value(installation_summary)
+
+        # Add generated environment variables only if desired
+        if generate_variables:
+            variables.update(
+                cls.__build_component_generated_variables(installation_summary)
+            )
+
+        # If the builder installation path env var is not present add it
+        # to simplify other commands after bootstrapped
+        if constants.INSTALLATION_SUMMARY_ENV_VAR not in variables:
+            variables[
+                constants.INSTALLATION_SUMMARY_ENV_VAR
+            ] = installation_summary.path
+
+        # Add a prefix to the shell to make obvious that the shell is bootstrapped
+        if constants.SHELL_PROMPT_FORMAT_ENV_VAR in variables:
+            variables[
+                constants.SHELL_PROMPT_FORMAT_ENV_VAR
+            ] = f"[b] {variables[constants.SHELL_PROMPT_FORMAT_ENV_VAR]}"
 
         return variables

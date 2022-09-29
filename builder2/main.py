@@ -2,7 +2,7 @@ import configargparse
 
 from builder2.di import container_instance
 from builder2 import __version__
-from builder2.commands import bootstrap, install, load_certificates, get
+from builder2.commands import bootstrap, install, load_certificates, get, source
 
 
 def __build_args_parser():
@@ -13,6 +13,7 @@ def __build_args_parser():
     install.register(subparsers)
     load_certificates.register(subparsers)
     get.register(subparsers)
+    source.register(subparsers)
     parser.add_argument(
         "--version", action="version", version=f"%(prog)s {__version__}"
     )
@@ -30,6 +31,7 @@ def main():
             bootstrap.__name__,
             load_certificates.__name__,
             get.__name__,
+            source.__name__,
         ]
     )
 
