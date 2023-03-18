@@ -35,7 +35,9 @@ class ToolInstaller(metaclass=abc.ABCMeta):
         self._wellknown_paths = {}
         self._component_env_vars = {}
         self._path_directories = []
-        self._executables_dir = kwargs.get("executables_dir", "bin")
+        self._executables_dir = self._config.executables_dir or kwargs.get(
+            "executables_dir", "bin"
+        )
         self._known_executables = kwargs.get("known_executables", [])
 
         self._file_manager: FileManager = kwargs.get("file_manager")

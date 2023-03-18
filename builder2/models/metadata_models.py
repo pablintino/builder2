@@ -30,6 +30,7 @@ class BaseComponentConfiguration:
     default: bool = False
     add_to_path: bool = False
     expected_hash: str = None
+    executables_dir: str = None
     group: str = None
     version: str = None
     required_packages: list = None
@@ -154,6 +155,9 @@ class BaseComponentSchema(Schema):
         data_key="expected-hash", required=False, load_default=None
     )
     group = fields.Str(required=False, load_default=None)
+    executables_dir = fields.Str(
+        data_key="executables-dir", required=False, load_default=None
+    )
     required_packages = fields.List(
         fields.Nested(PackageInstallationConfigurationSchema),
         data_key="required-packages",
