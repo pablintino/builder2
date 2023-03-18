@@ -2,32 +2,7 @@ stages:
   - build
   - publish
 
-python-build:
-  image: python:3.9
-  stage: build
-  script:
-    - ls /etc/ssl/custom
-    - pip install build twine pytest
-    - python -m build
-    - pip install -e . && pytest
-  artifacts:
-    paths:
-      - dist/*
-    expire_in: 1 week
-
-python-publish:
-  image: python:3.9
-  stage: publish
-  script:
-    - pip install twine
-    - >- 
-      TWINE_PASSWORD=${CI_NEXUS_PASSWORD} TWINE_USERNAME=${CI_NEXUS_USER} python -m twine
-      upload
-      --cert /etc/ssl/custom/root_ca.crt
-      --repository-url https://nexus1.internal.pablintino.net/repository/pypi-tools-rel/
-      dist/*
-
-docker-publish:
+.docker-base-job:
   stage: publish
   image:
     name: gcr.io/kaniko-project/executor:debug
@@ -41,7 +16,63 @@ docker-publish:
       /kaniko/executor
       --context "${CI_PROJECT_DIR}"
       --dockerfile "${CI_PROJECT_DIR}/Dockerfile"
-      --destination "${CI_HARBOR_REGISTRY}/tools-rel/builder2:${CI_COMMIT_REF_NAME}"
-      --destination "${CI_HARBOR_REGISTRY}/tools-rel/builder2:latest"
+      --destination "${CI_HARBOR_REGISTRY}/${HARBOR_PROJ}/builder2:${HARBOR_IMAGE_TAG}"
+      --destination "${CI_HARBOR_REGISTRY}/${HARBOR_PROJ}/builder2:latest"
+
+.python-publish-base-job:
+  image: python:3.9
+  stage: publish
+  script:
+    - pip install twine
+    - >- 
+      TWINE_PASSWORD=${CI_NEXUS_PASSWORD} TWINE_USERNAME=${CI_NEXUS_USER} python -m twine
+      upload
+      --cert /etc/ssl/custom/root_ca.crt
+      --repository-url https://nexus1.internal.pablintino.net/repository/${NEXUS_PROJ}/
+      dist/*
+
+python-build:
+  image: python:3.9
+  stage: build
+  script:
+    - pip install build twine pytest
+    - python -m build
+    - pip install -e . && pytest
+  artifacts:
+    paths:
+      - dist/*
+    expire_in: 1 week
+
+python-publish-dev:
+  extends: .python-publish-base-job
+  variables:
+    NEXUS_PROJ: "pypi-tools-dev"
   rules:
     - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_BRANCH == 'master'
+
+python-publish-rel:
+  extends: .python-publish-base-job
+  variables:
+    NEXUS_PROJ: "pypi-tools-rel"
+  only:
+    - tags
+
+docker-build:
+  extends: .docker-base-job
+  variables:
+    HARBOR_PROJ: "tools-dev"
+    HARBOR_IMAGE_TAG: ${CI_COMMIT_SHORT_SHA}
+  rules:
+    # Run only on master
+    - if: $CI_COMMIT_REF_NAME == "master" && $CI_COMMIT_TAG == null
+      when: on_success
+
+docker-release-tag:
+  extends: .docker-base-job
+  variables:
+    HARBOR_PROJ: "tools-rel"
+    HARBOR_IMAGE_TAG: ${CI_COMMIT_REF_NAME}
+  only:
+    - tags
