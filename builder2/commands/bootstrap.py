@@ -1,6 +1,7 @@
 import logging
 import os
 import pwd
+import signal
 import subprocess
 import sys
 
@@ -66,6 +67,11 @@ def __prepare_command(args):
     return bootstrap_cmd if bootstrap_cmd else [__get_default_shell()]
 
 
+def __signal_handler(_, __):
+    # 130 is the bash exit code for SIGINTs
+    sys.exit(130)
+
+
 @inject
 def __bootstrap(
     args,
@@ -74,6 +80,9 @@ def __bootstrap(
     command_runner: CommandRunner = Provide[Container.command_runner],
     environment_builder: EnvironmentBuilder = Provide[Container.environment_builder],
 ):
+    # Listen for process SIGNITs. If listener is not added SIGINT inside a container shell hangs the shell forever
+    signal.signal(signal.SIGINT, __signal_handler)
+
     try:
         builder2.loggers.configure("INFO" if args.output else "ERROR")
 
