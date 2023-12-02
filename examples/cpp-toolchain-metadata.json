@@ -4,8 +4,7 @@
       "type": "pip",
       "name": "conan",
       "post-installation": [
-        "conan config init",
-        "conan profile update settings.compiler.libcxx=libstdc++11 default"
+        "conan profile detect --force"
       ]
     },
     {

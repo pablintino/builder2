@@ -1,5 +1,6 @@
 import logging
 import os
+import signal
 import subprocess
 import threading
 import time
@@ -40,18 +41,30 @@ class CommandRunner:
     def __init__(self):
         self._logger = logging.getLogger(self.__class__.__name__)
 
+    def __process_cleanup(self, process: subprocess.Popen, shell: bool):
+        if process:
+            process.terminate()
+            # Shell commands may freeze the process if not
+            # properly killed (on timeouts)
+            if process.pid and shell:
+                try:
+                    os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+                except OSError:
+                    pass
+
     def run_process(
-        self,
-        command_list: List[str],
-        cwd: str = None,
-        timeout: int = 180,
-        shell: bool = False,
-        silent: bool = False,
+            self,
+            command_list: List[str],
+            cwd: str = None,
+            timeout: int = 180,
+            shell: bool = False,
+            silent: bool = False,
     ):
         working_dir = os.getcwd() if not cwd else cwd
         start_time = time.time()
-        try:
-            with self.__LogPipe(self._logger if not silent else None) as pipe:
+        with self.__LogPipe(self._logger if not silent else None) as pipe:
+            process = None
+            try:
                 process = subprocess.Popen(
                     command_list,
                     stdin=subprocess.DEVNULL,
@@ -60,6 +73,9 @@ class CommandRunner:
                     universal_newlines=True,
                     shell=shell,
                     cwd=working_dir,
+                    # If shell is used attach the setsid to
+                    # allow group kill of the processes
+                    preexec_fn=os.setsid if shell else None,
                 )
                 process.wait(timeout=timeout)
                 if process.returncode != 0:
@@ -68,22 +84,23 @@ class CommandRunner:
                     )
 
                 return pipe.output
-        except subprocess.CalledProcessError:
-            self._logger.debug(
-                "Failed to execute %s. Exit code non-zero.", command_list
-            )
-            raise
-        except subprocess.TimeoutExpired:
-            self._logger.error(
-                "Failed to execute %s. Timeout (%d)", command_list, timeout
-            )
-            raise
-        finally:
-            self._logger.debug(
-                " Command '%s' took %f seconds to execute",
-                command_list,
-                (time.time() - start_time),
-            )
+            except subprocess.CalledProcessError:
+                self._logger.debug(
+                    "Failed to execute %s. Exit code non-zero.", command_list
+                )
+                raise
+            except subprocess.TimeoutExpired:
+                self._logger.error(
+                    "Failed to execute %s. Timeout (%d)", command_list, timeout
+                )
+                raise
+            finally:
+                self.__process_cleanup(process, shell)
+                self._logger.debug(
+                    " Command '%s' took %f seconds to execute",
+                    command_list,
+                    (time.time() - start_time),
+                )
 
     def exec_command(self, command: List[str], env: Dict[str, str]):
         try:
