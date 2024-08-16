@@ -1,0 +1,19 @@
+{
+  "components": {
+    "ansible": {
+      "type": "ansible",
+      "name": "ansible-core",
+      "aliases": [
+        "ansible"
+      ],
+      "default": true,
+      "add-to-path": true,
+      "runner": {}
+    },
+    "pbtn-infra": {
+      "type": "ansible-collection",
+      "url": "git+https://github.com/pablintino/pbtn.infra.git",
+      "name": "pbtn.infra"
+    }
+  }
+}

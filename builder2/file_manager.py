@@ -8,7 +8,8 @@ import shutil
 import stat
 import tarfile
 import typing
-import urllib
+import urllib.request
+import urllib.error
 import zipfile
 from typing import List
 
@@ -34,7 +35,7 @@ class FileManager:
             self.__logger = logger
             io.FileIO.__init__(self, path, *args, **kwargs)
 
-        def read(self, size):
+        def read(self, size: int = -1):
             pos = self.tell()
             if (
                 self.__count != pos

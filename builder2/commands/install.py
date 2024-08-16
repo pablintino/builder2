@@ -49,11 +49,18 @@ def __install_components(
         with container_instance.tool_installers(
             type(component_config).__name__, component_key, component_config, target_dir
         ) as installer:
-            component_installation = installer.run_installation()
+            component_installation_result = installer.run_installation()
             conan_manager.add_profiles_to_component(
-                component_key, component_installation, target_dir
+                component_key,
+                component_installation_result.installation_model,
+                target_dir,
             )
-            installation_summary.add_component(component_key, component_installation)
+            installation_summary.add_component(
+                component_key, component_installation_result.installation_model
+            )
+            installation_summary.add_packages(
+                component_installation_result.side_packages
+            )
 
 
 @inject

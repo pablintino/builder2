@@ -13,6 +13,7 @@ from builder2.models.installation_models import (
     InstallationSummarySchema,
     InstallationSummaryModel,
     InstallationEnvironmentModel,
+    PackageInstallationModel,
 )
 
 
@@ -82,8 +83,8 @@ class InstallationSummary:
     def add_component(self, tool_key: str, tool_summary: ComponentInstallationModel):
         self.__components[tool_key] = tool_summary
 
-    def add_packages(self, names: List[str]):
-        self.__packages.extend(names)
+    def add_packages(self, package: List[PackageInstallationModel]):
+        self.__packages.extend(package)
 
     def add_environment_variable(self, name: str, value: str):
         self.__environment_vars[name] = value
@@ -101,30 +102,7 @@ class InstallationSummary:
     def get_component(
         self, name: str, version=None, triplet=None, default_if_not_found=False
     ) -> ComponentInstallationModel:
-        elements = [
-            element
-            for element in self.__components.values()
-            if (
-                element.name == name
-                and version
-                and not triplet
-                and element.version == version
-            )
-            or (
-                element.name == name
-                and triplet
-                and not version
-                and element.triplet == triplet
-            )
-            or (
-                element.name == name
-                and version
-                and element.version == version
-                and triplet
-                and element.triplet == triplet
-            )
-            or (element.name == name and not version and not triplet)
-        ]
+        elements = self.__search_matching_component(name, triplet, version)
         if len(elements) > 1 and not default_if_not_found:
             raise BuilderException(f"Multiple versions of {name} component")
         if len(elements) == 1:
@@ -146,6 +124,38 @@ class InstallationSummary:
             )
 
         return None
+
+    def __search_matching_component(self, name, triplet, version):
+        def __name_match(element, target_name) -> bool:
+            return (element.name == target_name) or any(
+                alias == target_name for alias in element.aliases
+            )
+
+        elements = [
+            element
+            for element in self.__components.values()
+            if (
+                __name_match(element, name)
+                and version
+                and not triplet
+                and element.version == version
+            )
+            or (
+                __name_match(element, name)
+                and triplet
+                and not version
+                and element.triplet == triplet
+            )
+            or (
+                __name_match(element, name)
+                and version
+                and element.version == version
+                and triplet
+                and element.triplet == triplet
+            )
+            or (__name_match(element, name) and not version and not triplet)
+        ]
+        return elements
 
     def get_components_by_type(
         self, component_type: type

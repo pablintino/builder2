@@ -7,6 +7,7 @@ from typing import List
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 
+from builder2.models import installation_models
 from builder2.utils import replace_non_alphanumeric
 from builder2.command_line import CommandRunner
 from builder2.exceptions import BuilderException
@@ -79,7 +80,7 @@ class CertificateManager:
 
     def __install_keystore_certificate(
         self,
-        installation_summary: InstallationSummary,
+        installation_summary: installation_models.ComponentInstallationModel,
         certificate: x509.Certificate,
         name: str = None,
     ):

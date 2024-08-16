@@ -1,4 +1,5 @@
 import dataclasses
+import typing
 from typing import List, Dict
 
 from datetime import datetime
@@ -16,6 +17,7 @@ class ComponentInstallationModel:
     def __init__(
         self,
         name: str,
+        aliases: typing.List[str],
         version: str,
         path: str,
         package_hash: str,
@@ -28,6 +30,7 @@ class ComponentInstallationModel:
     ):
         self.version = version
         self.name = name
+        self.aliases = aliases
         self.path = path
         self.package_hash = package_hash
         self.configuration = configuration
@@ -43,11 +46,24 @@ class PackageInstallationModel:
         self,
         name: str,
         version: str,
-        configuration: BasePackageInstallationConfiguration,
+        configuration: BasePackageInstallationConfiguration = None,
     ):
         self.version = version
         self.name = name
         self.configuration = configuration
+
+
+class PipPackageInstallationModel(PackageInstallationModel):
+    def __init__(
+        self,
+        *args,
+        pip_hash: str,
+        report: typing.Dict[str, typing.Any] = None,
+        **kwargs
+    ):
+        super().__init__(*args, **kwargs)
+        self.report = report
+        self.pip_hash = pip_hash
 
 
 @dataclasses.dataclass
@@ -76,9 +92,12 @@ class InstallationEnvironmentSchema(Schema):
 
 class ComponentInstallationSchema(Schema):
     name = fields.Str(required=True)
+    aliases = fields.List(
+        fields.String, required=False, load_default=[], allow_none=True
+    )
     package_hash = fields.Str(data_key="package-hash", required=True)
     version = fields.Str(required=True)
-    path = fields.Str(required=True)
+    path = fields.Str(required=False)
     triplet = fields.Str(required=False, dump_default=None, load_default=None)
     wellknown_paths = fields.Dict(
         keys=fields.String(),

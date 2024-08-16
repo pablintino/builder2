@@ -1,7 +1,14 @@
 import dataclasses
 import typing
 
-from marshmallow import Schema, fields, post_load
+from marshmallow import (
+    Schema,
+    fields,
+    post_load,
+    validates_schema,
+    ValidationError,
+    validate,
+)
 from marshmallow_oneofschema import OneOfSchema
 
 
@@ -16,6 +23,7 @@ class BasePackageInstallationConfiguration:
 @dataclasses.dataclass
 class PipPackageInstallationConfiguration(BasePackageInstallationConfiguration):
     index: str = None
+    force: bool = False
 
 
 @dataclasses.dataclass
@@ -34,6 +42,7 @@ class BaseComponentConfiguration:
     group: str = None
     version: str = None
     required_packages: list = None
+    aliases: list = None
 
 
 @dataclasses.dataclass
@@ -95,6 +104,30 @@ class MavenConfiguration(BaseComponentConfiguration):
 
 
 @dataclasses.dataclass
+class PipBasedToolConfiguration(BaseComponentConfiguration):
+    index: str = None
+
+
+@dataclasses.dataclass
+class AnsibleRunnerConfiguration:
+    version: str = None
+    install: bool = True
+    index: str = None
+
+
+@dataclasses.dataclass
+class AnsibleConfiguration(PipBasedToolConfiguration):
+    runner: AnsibleRunnerConfiguration = None
+
+
+@dataclasses.dataclass
+class AnsibleCollectionConfiguration(BaseComponentConfiguration):
+    install_requirements: bool = None
+    system_wide: bool = None
+    req_regexes: typing.List[str] = None
+
+
+@dataclasses.dataclass
 class ToolchainMetadataConfiguration:
     components: typing.Dict[str, BaseComponentConfiguration] = None
     packages: typing.List[BasePackageInstallationConfiguration] = None
@@ -111,7 +144,12 @@ class BasePackageInstallationSchema(Schema):
         dump_default=False,
     )
     post_installation = fields.List(
-        fields.String, data_key="post-installation", load_default=[]
+        fields.String,
+        data_key="post-installation",
+        load_default=[],
+        required=False,
+        default=[],
+        allow_none=True,
     )
 
 
@@ -146,7 +184,9 @@ class PackageInstallationConfigurationSchema(OneOfSchema):
 
 class BaseComponentSchema(Schema):
     name = fields.Str(required=True)
-    url = fields.Str(required=True)
+    aliases = fields.List(
+        fields.String, required=False, load_default=[], allow_none=True
+    )
     default = fields.Boolean(required=False, load_default=False)
     add_to_path = fields.Boolean(
         data_key="add-to-path", required=False, load_default=False
@@ -166,11 +206,15 @@ class BaseComponentSchema(Schema):
     version = fields.Str(required=False, load_default=None)
 
 
-class SourceBuildSchema(BaseComponentSchema):
+class UrlBasedComponentSchema(BaseComponentSchema):
+    url = fields.Str(required=True)
+
+
+class SourceBuildSchema(UrlBasedComponentSchema):
     pass
 
 
-class CompilerBuildSchema(BaseComponentSchema):
+class CompilerBuildSchema(UrlBasedComponentSchema):
     conan_profile = fields.Boolean(
         data_key="conan-profile", required=False, load_default=False
     )
@@ -199,7 +243,7 @@ class ClangComponentSchema(CompilerBuildSchema):
         return ClangBuildConfiguration(**data)
 
 
-class CppCheckComponentSchema(BaseComponentSchema):
+class CppCheckComponentSchema(UrlBasedComponentSchema):
     compile_rules = fields.Boolean(
         data_key="compile-rules", required=False, load_default=True
     )
@@ -209,40 +253,90 @@ class CppCheckComponentSchema(BaseComponentSchema):
         return CppCheckBuildConfiguration(**data)
 
 
-class ValgrindComponentSchema(BaseComponentSchema):
+class ValgrindComponentSchema(UrlBasedComponentSchema):
     @post_load
     def make_valgrind_config(self, data, **__):
         return ValgrindBuildConfiguration(**data)
 
 
-class DownloadOnlyCompilerComponentSchema(BaseComponentSchema):
+class DownloadOnlyCompilerComponentSchema(UrlBasedComponentSchema):
     @post_load
     def make_download_only_compiler_config(self, data, **__):
         return DownloadOnlyCompilerConfiguration(**data)
 
 
-class DownloadOnlyComponentSchema(BaseComponentSchema):
+class DownloadOnlyComponentSchema(UrlBasedComponentSchema):
     @post_load
     def make_download_only_config(self, data, **__):
         return DownloadOnlyConfiguration(**data)
 
 
-class CmakeBuildComponentSchema(BaseComponentSchema):
+class CmakeBuildComponentSchema(UrlBasedComponentSchema):
     @post_load
     def make_cmake_config(self, data, **__):
         return CmakeBuildConfiguration(**data)
 
 
-class JdkComponentSchema(BaseComponentSchema):
+class JdkComponentSchema(UrlBasedComponentSchema):
     @post_load
     def make_jdk_config(self, data, **__):
         return JdkConfiguration(**data)
 
 
-class MavenComponentSchema(BaseComponentSchema):
+class MavenComponentSchema(UrlBasedComponentSchema):
     @post_load
     def make_maven_config(self, data, **__):
         return MavenConfiguration(**data)
+
+
+class AnsibleCollectionInstallSchema(BaseComponentSchema):
+    url = fields.Str(required=False)
+    install_requirements = fields.Boolean(
+        data_key="install-requirements", required=False, load_default=True
+    )
+    system_wide = fields.Boolean(
+        data_key="system-wide", required=False, load_default=False
+    )
+
+    req_regexes = fields.List(
+        fields.String, data_key="requirements-regexes", load_default=[]
+    )
+
+    @validates_schema
+    def validate_numbers(self, data, **_):
+        if "name" not in data and "url" not in data:
+            raise ValidationError("one of name or url is required")
+
+    @post_load
+    def make_ansible_collection_config(self, data, **__):
+        return AnsibleCollectionConfiguration(**data)
+
+
+class AnsibleRunnerInstallationSchema(Schema):
+    version = fields.Str(required=False, load_default=None)
+    install = fields.Boolean(required=False, load_default=True, dump_default=True)
+    index = fields.String(required=False, load_default=None, dump_default=None)
+
+    @post_load
+    def make_ansible_runner_config(self, data, **__):
+        return AnsibleRunnerConfiguration(**data)
+
+
+class AnsibleSchema(BaseComponentSchema):
+    name = fields.Str(
+        required=True, validate=validate.OneOf(["ansible", "ansible-core"])
+    )
+    index = fields.String(required=False, load_default=None, dump_default=None)
+    runner = fields.Nested(
+        AnsibleRunnerInstallationSchema,
+        load_default=None,
+        required=False,
+        allow_none=True,
+    )
+
+    @post_load
+    def make_ansible_config(self, data, **__):
+        return AnsibleConfiguration(**data)
 
 
 class ToolchainComponentSchema(OneOfSchema):
@@ -257,6 +351,8 @@ class ToolchainComponentSchema(OneOfSchema):
         "cmake-build": CmakeBuildComponentSchema,
         "jdk": JdkComponentSchema,
         "maven": MavenComponentSchema,
+        "ansible": AnsibleSchema,
+        "ansible-collection": AnsibleCollectionInstallSchema,
     }
 
     def get_obj_type(self, obj):
@@ -280,6 +376,10 @@ class ToolchainComponentSchema(OneOfSchema):
             return "jdk"
         if isinstance(obj, MavenConfiguration):
             return "maven"
+        if isinstance(obj, AnsibleConfiguration):
+            return "ansible"
+        if isinstance(obj, AnsibleCollectionConfiguration):
+            return "ansible-collection"
 
         raise Exception("Unknown object type: {}".format(obj.__class__.__name__))
 

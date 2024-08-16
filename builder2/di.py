@@ -12,6 +12,8 @@ from builder2.file_manager import FileManager
 from builder2.models.metadata_models import BaseComponentConfiguration
 from builder2.package_manager import PackageManager
 from builder2.tools import (
+    AnsibleInstaller,
+    AnsibleCollectionInstaller,
     JdkInstaller,
     ToolInstaller,
     MavenInstaller,
@@ -162,7 +164,29 @@ class Container(containers.DeclarativeContainer):
         time_multiplier=config.timout_mult,
     )
 
+    ansible_installer_factory = providers.Factory(
+        AnsibleInstaller,
+        file_manager=file_manager,
+        cryptographic_provider=cryptographic_provider,
+        command_runner=command_runner,
+        package_manager=package_manager,
+        core_count=config.core_count,
+        time_multiplier=config.timout_mult,
+    )
+
+    ansible_collection_installer_factory = providers.Factory(
+        AnsibleCollectionInstaller,
+        file_manager=file_manager,
+        cryptographic_provider=cryptographic_provider,
+        command_runner=command_runner,
+        package_manager=package_manager,
+        core_count=config.core_count,
+        time_multiplier=config.timout_mult,
+    )
+
     tool_installers = providers.Aggregate(
+        AnsibleConfiguration=ansible_installer_factory,
+        AnsibleCollectionConfiguration=ansible_collection_installer_factory,
         GccBuildConfiguration=gcc_sources_installer_factory,
         CmakeBuildConfiguration=cmake_sources_installer_factory,
         DownloadOnlyConfiguration=download_only_sources_installer_factory,

@@ -6,6 +6,8 @@ import threading
 import time
 from typing import List, Dict
 
+from builder2 import exceptions
+
 
 class CommandRunner:
     class __LogPipe(threading.Thread):
@@ -53,12 +55,12 @@ class CommandRunner:
                     pass
 
     def run_process(
-            self,
-            command_list: List[str],
-            cwd: str = None,
-            timeout: int = 180,
-            shell: bool = False,
-            silent: bool = False,
+        self,
+        command_list: List[str],
+        cwd: str = None,
+        timeout: int = 180,
+        shell: bool = False,
+        silent: bool = False,
     ):
         working_dir = os.getcwd() if not cwd else cwd
         start_time = time.time()
@@ -114,3 +116,21 @@ class CommandRunner:
                 exc_info=err,
             )
             raise err
+
+    def check_output(
+        self,
+        command_list: List[str],
+        timeout: int = 180,
+        cwd: str = None,
+    ) -> str:
+        try:
+            return subprocess.check_output(
+                command_list, timeout=timeout, cwd=cwd, encoding="utf-8"
+            )
+        except subprocess.CalledProcessError as err:
+            self._logger.debug(
+                "Failed to execute %s. Exit code non-zero.", command_list
+            )
+            raise exceptions.BuilderException(
+                f"error running command {command_list}", exit_code=err.returncode
+            ) from err
