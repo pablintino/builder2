@@ -4,12 +4,14 @@ from typing import List, Dict
 
 from datetime import datetime
 from marshmallow import fields, Schema, post_load
+from marshmallow_oneofschema import OneOfSchema
 
 from builder2.models.metadata_models import (
     ToolchainComponentSchema,
     BaseComponentConfiguration,
     BasePackageInstallationConfiguration,
-    PackageInstallationConfigurationSchema,
+    AptPackageInstallationConfiguration,
+    PipPackageInstallationConfiguration,
 )
 
 
@@ -53,17 +55,15 @@ class PackageInstallationModel:
         self.configuration = configuration
 
 
+class AptPackageInstallationModel(PackageInstallationModel):
+    pass
+
+
 class PipPackageInstallationModel(PackageInstallationModel):
-    def __init__(
-        self,
-        *args,
-        pip_hash: str,
-        report: typing.Dict[str, typing.Any] = None,
-        **kwargs
-    ):
+    def __init__(self, *args, pip_hash: str, location: str, **kwargs):
         super().__init__(*args, **kwargs)
-        self.report = report
         self.pip_hash = pip_hash
+        self.location = location
 
 
 @dataclasses.dataclass
@@ -131,11 +131,51 @@ class ComponentInstallationSchema(Schema):
 class PackageInstallationSchema(Schema):
     name = fields.Str(required=True)
     version = fields.Str(required=False, load_default=None, dump_default=None)
-    configuration = fields.Nested(PackageInstallationConfigurationSchema, required=True)
+
+
+class AptPackageInstallationSchema(PackageInstallationSchema):
+    name = fields.Str(required=True)
+    version = fields.Str(required=False, load_default=None, dump_default=None)
+    configuration = fields.Nested(AptPackageInstallationConfiguration, required=True)
 
     @post_load
-    def make_package_installation(self, data, **__):
-        return PackageInstallationModel(**data)
+    def make_apt_package_installation(self, data, **__):
+        return AptPackageInstallationModel(**data)
+
+
+class PipPackageInstallationSchema(PackageInstallationSchema):
+    name = fields.Str(required=True)
+    version = fields.Str(required=True)
+    pip_hash = fields.Str(required=True)
+    location = fields.Str(required=True)
+    # Not required: Some packages are automatically installed
+    # as a dependency and don't have an associated metadata
+    configuration = fields.Nested(
+        PipPackageInstallationConfiguration,
+        required=False,
+        dump_default=None,
+        load_default=None,
+        missing=None,
+    )
+
+    @post_load
+    def make_apt_package_installation(self, data, **__):
+        return PipPackageInstallationModel(**data)
+
+
+class PackageInstallationSchema(OneOfSchema):
+    type_schemas = {
+        "pip": PipPackageInstallationSchema,
+        "apt": AptPackageInstallationSchema,
+    }
+
+    def get_obj_type(self, obj):
+        if isinstance(obj, PipPackageInstallationConfiguration):
+            return "pip"
+        if isinstance(obj, AptPackageInstallationConfiguration):
+            return "apt"
+
+        raise Exception("Unknown object type: {}".format(obj.__class__.__name__))
 
 
 class InstallationSummarySchema(Schema):

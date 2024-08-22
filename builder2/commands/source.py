@@ -5,12 +5,11 @@ from typing import Dict
 from dependency_injector.wiring import inject, Provide
 
 import builder2.loggers
-from builder2 import constants
+from builder2.commands import command_commons
 from builder2.di import Container
 from builder2.environment_builder import EnvironmentBuilder
-from builder2.file_manager import FileManager
-from builder2.commands import command_commons
 from builder2.exceptions import BuilderException
+from builder2.file_manager import FileManager
 
 __logger = logging.getLogger(__name__)
 
@@ -37,7 +36,10 @@ def __source(
             args, file_manager
         )
         env_vars = environment_builder.build_environment_variables(
-            installation_summary, args.generate_vars, append=False
+            installation_summary,
+            args.generate_vars,
+            append=False,
+            add_python_env=args.generate_python_vars,
         )
         source_content = __generate_vars_content(env_vars)
         if args.certs_dir and os.path.exists(args.certs_dir):
@@ -60,4 +62,10 @@ def register(subparsers):
         dest="generate_vars",
         action="store_true",
         help="Enable component generated environment variables",
+    )
+    command_parser.add_argument(
+        "--generate-python-vars",
+        dest="generate_python_vars",
+        action="store_true",
+        help="Enable python paths tweaking for builder2 venvs",
     )

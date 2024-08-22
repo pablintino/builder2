@@ -4,9 +4,7 @@ import logging
 import os
 import pathlib
 import re
-import subprocess
 import sys
-import sysconfig
 import tempfile
 import typing
 from urllib.parse import urlparse
@@ -26,15 +24,10 @@ from builder2.models.metadata_models import (
     PipPackageInstallationConfiguration,
 )
 from builder2.package_manager import PackageManager
-from builder2.tools import CompilersSupport, JavaTools, ansible_support, pip_support
+from builder2.python_manager import PythonManager
+from builder2.tools import CompilersSupport, JavaTools, ansible_support
 from builder2.tools.compilers_support import EXEC_NAME_GCC_CC, EXEC_NAME_CLANG_CC
 from builder2.tools.java_support import DIR_NAME_JAVA_HOME
-
-
-@dataclasses.dataclass
-class ComponentInstallationResult:
-    installation_model: ComponentInstallationModel
-    side_packages: typing.List[PackageInstallationModel]
 
 
 class ToolInstaller(metaclass=abc.ABCMeta):
@@ -60,7 +53,7 @@ class ToolInstaller(metaclass=abc.ABCMeta):
         )
         self._command_runner: CommandRunner = kwargs.get("command_runner")
         self._package_manager: PackageManager = kwargs.get("package_manager")
-        self._side_packages: typing.List[PackageInstallationModel] = []
+        global_python_manager: PythonManager = kwargs.get("python_manager")
         self._core_count: int = kwargs.get("core_count", 10)
         self._time_multiplier: float = kwargs.get("time_multiplier", 100) / 100.0
         self._logger = logging.getLogger(self.__class__.__name__)
@@ -76,6 +69,13 @@ class ToolInstaller(metaclass=abc.ABCMeta):
         if kwargs.get("create_target", True) and not os.path.exists(self._target_dir):
             self._file_manager.create_file_tree(self._target_dir)
 
+        self._python_manager = global_python_manager.get_create_env(
+            pathlib.Path(self._target_dir),
+            self.tool_key,
+            depends_on=self._config.depends_on,
+            create_venv=self._config.use_venv,
+        )
+
     def __enter__(self):
         self._temp_dir = tempfile.TemporaryDirectory()
         return self
@@ -85,21 +85,18 @@ class ToolInstaller(metaclass=abc.ABCMeta):
         if exception_type and self._target_dir and os.path.exists(self._target_dir):
             self._file_manager.delete_file_tree(self._target_dir)
 
-    def _create_component_installation(self) -> ComponentInstallationResult:
+    def _create_component_installation(self) -> ComponentInstallationModel:
         tool_path = self._compute_tool_path()
-        return ComponentInstallationResult(
-            ComponentInstallationModel(
-                name=self._config.name,
-                aliases=self._config.aliases,
-                version=self._version,
-                path=str(tool_path),
-                package_hash=self._package_hash,
-                configuration=self._config,
-                wellknown_paths=self._wellknown_paths,
-                environment_vars=self._component_env_vars,
-                path_dirs=self._path_directories if self._config.add_to_path else [],
-            ),
-            self._side_packages,
+        return ComponentInstallationModel(
+            name=self._config.name,
+            aliases=self._config.aliases,
+            version=self._version,
+            path=str(tool_path),
+            package_hash=self._package_hash,
+            configuration=self._config,
+            wellknown_paths=self._wellknown_paths,
+            environment_vars=self._component_env_vars,
+            path_dirs=self._path_directories if self._config.add_to_path else [],
         )
 
     def _compute_tool_version(self):
@@ -165,7 +162,7 @@ class ToolInstaller(metaclass=abc.ABCMeta):
         if bin_path.exists() and bin_path.is_dir():
             self._path_directories.append(str(bin_path.absolute()))
 
-    def run_installation(self) -> ComponentInstallationResult:
+    def run_installation(self) -> ComponentInstallationModel:
         self._acquire_packages()
         self._compute_tool_version()
         self._compute_wellknown_paths()
@@ -237,7 +234,7 @@ class ToolSourceInstaller(ToolInstaller):
     def _configure_pre_hook(self):
         pass
 
-    def run_installation(self) -> ComponentInstallationResult:
+    def run_installation(self) -> ComponentInstallationModel:
         self._acquire_sources()
         self._acquire_packages()
         self._configure_pre_hook()
@@ -624,7 +621,7 @@ class DownloadOnlySourcesInstaller(ToolInstaller):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, create_target=False, **kwargs)
 
-    def run_installation(self) -> ComponentInstallationResult:
+    def run_installation(self) -> ComponentInstallationModel:
         self._acquire_sources()
         self._acquire_packages()
         self._file_manager.copy_file_tree(self._sources_dir, self._target_dir)
@@ -741,12 +738,12 @@ class PipBasedToolInstaller(ToolInstaller):
         self._entry_points_package = entry_points_package
         self._pip_install_report = None
         self._pip_package_path = None
+        self.python_bin = sys.executable
 
     def _acquire_packages(self):
         # Call the parent method first to install early dependencies if required
         super()._acquire_packages()
-
-        self._pip_install_report = self._package_manager.install_pip_package(
+        self._pip_install_report = self._python_manager.install_pip_package(
             PipPackageInstallationConfiguration(
                 name=self._config.name,
                 version=self._config.version,
@@ -756,8 +753,8 @@ class PipBasedToolInstaller(ToolInstaller):
         )
         if self._pip_install_report:
             self._package_hash = self._pip_install_report.pip_hash
-            self._pip_package_path = pip_support.fetch_package_location(
-                self._config.name, self._command_runner
+            self._pip_package_path = self._python_manager.fetch_package_location(
+                self._config.name
             )
 
     def _compute_tool_version(self):
@@ -781,7 +778,7 @@ class PipBasedToolInstaller(ToolInstaller):
     def _compute_wellknown_paths(self):
         if self._pip_package_path:
             pip_entry_points = (
-                pip_support.fetch_entry_points(self._pip_package_path) or {}
+                self._python_manager.fetch_entry_points(self._pip_package_path) or {}
             )
             self._wellknown_paths.update(pip_entry_points)
 
@@ -797,26 +794,26 @@ class AnsibleInstaller(PipBasedToolInstaller):
     def _acquire_packages(self):
         super()._acquire_packages()
         if self._config.runner and self._config.runner.install:
-            report = self._package_manager.install_pip_package(
+            self._python_manager.install_pip_package(
                 PipPackageInstallationConfiguration(
                     name="ansible-runner",
                     version=self._config.runner.version,
                     index=self._config.runner.index,
                     force=True,
                     build_transient=False,
-                )
+                ),
             )
-            self._side_packages.append(report)
 
     def _compute_wellknown_paths(self):
         super()._compute_wellknown_paths()
         if self._config.runner and self._config.runner.install:
-            pip_runner_package_path = pip_support.fetch_package_location(
-                "ansible-runner", self._command_runner
+            pip_runner_package_path = self._python_manager.fetch_package_location(
+                "ansible-runner"
             )
             if pip_runner_package_path:
                 pip_entry_points = (
-                    pip_support.fetch_entry_points(pip_runner_package_path) or {}
+                    self._python_manager.fetch_entry_points(pip_runner_package_path)
+                    or {}
                 )
                 self._wellknown_paths.update(pip_entry_points)
 
@@ -834,7 +831,7 @@ class AnsibleCollectionInstaller(ToolInstaller):
         installer = ansible_support.AnsibleCollectionInstaller(
             collection_dir,
             self._command_runner,
-            self._package_manager,
+            self._python_manager,
             self._cryptographic_provider,
         )
         self._install_report = installer.install(
@@ -844,11 +841,6 @@ class AnsibleCollectionInstaller(ToolInstaller):
             requirements_patterns=self._config.req_regexes,
             system_wide=self._config.system_wide,
         )
-        for collection_report in [
-            self._install_report.main_collection
-        ] + self._install_report.dependencies:
-            if collection_report.pip_reports:
-                self._side_packages.extend(collection_report.pip_reports)
         self._package_hash = self._install_report.main_collection.package_hash
 
     def _compute_tool_version(self):
@@ -869,9 +861,7 @@ class AnsibleCollectionInstaller(ToolInstaller):
             self._install_report
             and self._install_report.main_collection.collection_path
         ):
-            collection_path = pathlib.Path(
-                self._install_report.main_collection.collection_path
-            )
+            collection_path = self._install_report.main_collection.collection_path
             if collection_path.is_dir():
                 return collection_path
         return super()._compute_tool_path()

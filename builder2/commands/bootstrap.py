@@ -103,7 +103,9 @@ def __bootstrap(
 
         bootstrap_cmd = __prepare_command(args)
         env_vars = environment_builder.build_environment_variables(
-            installation_summary, args.generate_vars
+            installation_summary,
+            args.generate_vars,
+            add_python_env=args.generate_python_vars,
         )
         command_runner.exec_command(bootstrap_cmd, env_vars)
     except OSError as err:
@@ -128,5 +130,11 @@ def register(subparsers):
         dest="generate_vars",
         action="store_true",
         help="Enable component generated environment variables",
+    )
+    command_parser.add_argument(
+        "--generate-python-vars",
+        dest="generate_python_vars",
+        action="store_true",
+        help="Enable python paths tweaking for builder2 venvs",
     )
     command_parser.add_argument("remainder", nargs=configargparse.REMAINDER)

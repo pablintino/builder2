@@ -1,5 +1,12 @@
 {
   "components": {
+    "pbtn-infra": {
+      "type": "ansible-collection",
+      "url": "git+https://github.com/pablintino/pbtn.infra.git",
+      "use-venv": true,
+      "name": "pbtn.infra",
+      "depends-on": "ansible"
+    },
     "ansible": {
       "type": "ansible",
       "name": "ansible-core",
@@ -8,12 +15,8 @@
       ],
       "default": true,
       "add-to-path": true,
-      "runner": {}
-    },
-    "pbtn-infra": {
-      "type": "ansible-collection",
-      "url": "git+https://github.com/pablintino/pbtn.infra.git",
-      "name": "pbtn.infra"
+      "runner": {},
+      "use-venv": true
     }
   }
 }

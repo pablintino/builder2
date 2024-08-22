@@ -1,4 +1,5 @@
 import os
+import pathlib
 import typing
 
 from builder2 import constants
@@ -30,15 +31,23 @@ class EnvironmentBuilder:
         variables[var_name] = path
 
     @staticmethod
-    def __get_path_value(installation_summary):
-        paths = os.environ.get("PATH", "").strip(":").split(":")
+    def __insert_into_list_var(
+        envs: typing.Dict[str, str], name: str, value: str
+    ) -> typing.Dict[str, str]:
+        content = envs.get(name, "").strip(os.pathsep).split(os.pathsep)
+        content.insert(0, str(value))
+        if content:
+            # use a dict to remove duplications while preserving the order
+            envs.update(
+                {name: os.pathsep.join(list(dict.fromkeys(content))).strip(os.pathsep)}
+            )
+        return envs
+
+    @classmethod
+    def __set_paths(cls, installation_summary, envs: typing.Dict[str, str]):
         for component_installation in installation_summary.get_components().values():
-            # Filter paths to include only non-already included ones
-            component_paths = [
-                path for path in component_installation.path_dirs if path not in paths
-            ]
-            paths.extend(component_paths)
-        return ":".join(paths).strip(":")
+            for paths in component_installation.path_dirs:
+                cls.__insert_into_list_var(envs, "PATH", paths)
 
     @classmethod
     def __build_component_generated_variables(
@@ -59,9 +68,11 @@ class EnvironmentBuilder:
                         component_data.version, "_"
                     )
                     sanitized_triplet = replace_non_alphanumeric(
-                        component_data.triplet
-                        if component_data.triplet is not None
-                        else "",
+                        (
+                            component_data.triplet
+                            if component_data.triplet is not None
+                            else ""
+                        ),
                         "_",
                     )
 
@@ -103,9 +114,9 @@ class EnvironmentBuilder:
                             variables,
                             sanitized_name,
                             profile_path,
-                            version=sanitized_version
-                            if version_per_triplet > 1
-                            else None,
+                            version=(
+                                sanitized_version if version_per_triplet > 1 else None
+                            ),
                             triplet=sanitized_triplet if not all_same_triplet else None,
                             prefix="CONAN_PROFILE",
                             suffix=replace_non_alphanumeric(profile, "_"),
@@ -129,11 +140,40 @@ class EnvironmentBuilder:
         return variables
 
     @classmethod
+    def __set_python_vars(
+        cls, installation_summary: InstallationSummary, envs: typing.Dict[str, str], add_python_env: bool
+    ):
+        base_path = pathlib.Path(installation_summary.path).parent
+        component_envs = {
+            base_path.joinpath(name, ".venv"): data
+            for name, data in installation_summary.get_components().items()
+            if data.configuration.add_to_path
+        }
+
+        # Add the global venv
+        cls.__set_python_env_vars(envs, base_path.joinpath(".venv"), add_python_env)
+
+        for path in component_envs.keys():
+            cls.__set_python_env_vars(envs, path,add_python_env)
+
+    @classmethod
+    def __set_python_env_vars(cls, envs:typing.Dict[str, str], path: pathlib.Path, add_python_env:bool):
+        if not path.exists():
+            return
+        site_packages = next(path.rglob("**/site-packages"), None)
+        bins_path = path.joinpath("bin")
+        if site_packages and bins_path.exists():
+            cls.__insert_into_list_var(envs, "PATH", str(bins_path))
+            if add_python_env:
+                cls.__insert_into_list_var(envs, "PYTHONPATH", str(site_packages))
+
+    @classmethod
     def build_environment_variables(
         cls,
         installation_summary: InstallationSummary,
         generate_variables: bool,
         append: bool = True,
+        add_python_env: bool = False,
     ):
         variables = os.environ.copy() if append else {}
         for installation in installation_summary.get_components().values():
@@ -141,7 +181,8 @@ class EnvironmentBuilder:
         variables.update(installation_summary.get_environment_variables())
 
         # Replace PATH with its value plus the paths in the summary
-        variables["PATH"] = cls.__get_path_value(installation_summary)
+        cls.__set_paths(installation_summary, variables)
+        cls.__set_python_vars(installation_summary, variables, add_python_env)
 
         # Add generated environment variables only if desired
         if generate_variables:
@@ -152,14 +193,14 @@ class EnvironmentBuilder:
         # If the builder installation path env var is not present add it
         # to simplify other commands after bootstrapped
         if constants.INSTALLATION_SUMMARY_ENV_VAR not in variables:
-            variables[
-                constants.INSTALLATION_SUMMARY_ENV_VAR
-            ] = installation_summary.path
+            variables[constants.INSTALLATION_SUMMARY_ENV_VAR] = (
+                installation_summary.path
+            )
 
         # Add a prefix to the shell to make obvious that the shell is bootstrapped
         if constants.SHELL_PROMPT_FORMAT_ENV_VAR in variables:
-            variables[
-                constants.SHELL_PROMPT_FORMAT_ENV_VAR
-            ] = f"[b] {variables[constants.SHELL_PROMPT_FORMAT_ENV_VAR]}"
+            variables[constants.SHELL_PROMPT_FORMAT_ENV_VAR] = (
+                f"[b] {variables[constants.SHELL_PROMPT_FORMAT_ENV_VAR]}"
+            )
 
         return variables

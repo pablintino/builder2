@@ -12,6 +12,7 @@ from builder2 import command_line
 from builder2 import cryptographic_provider
 from builder2 import package_manager
 from builder2.models.installation_models import PipPackageInstallationModel
+from builder2.python_manager import PythonManager
 
 
 @dataclasses.dataclass
@@ -20,22 +21,8 @@ class AnsibleCollectionInstallReport:
     version: str
     requirements: typing.List[str]
     package_hash: str
-    collection_path: str = None
+    collection_path: pathlib.Path = None
     pip_reports: typing.List[PipPackageInstallationModel] = None
-
-    def with_fields(
-        self,
-        pip_reports: typing.List[PipPackageInstallationModel] = None,
-        collection_path: str = None,
-    ) -> "AnsibleCollectionInstallReport":
-        return AnsibleCollectionInstallReport(
-            self.name,
-            self.version,
-            self.requirements,
-            self.package_hash,
-            collection_path=collection_path or self.collection_path,
-            pip_reports=pip_reports or self.pip_reports,
-        )
 
 
 @dataclasses.dataclass
@@ -51,12 +38,12 @@ class AnsibleCollectionInstaller:
         self,
         base_path: pathlib.Path,
         command_runner: command_line.CommandRunner,
-        pkg_manager: package_manager.PackageManager,
+        python_manager: PythonManager,
         crypto_provider: cryptographic_provider.CryptographicProvider,
     ):
         self.__base_path = base_path
         self.__command_runner = command_runner
-        self.__package_manager = pkg_manager
+        self.__python_manager = python_manager
         self.__crypto_provider = crypto_provider
 
     def install(
@@ -66,18 +53,16 @@ class AnsibleCollectionInstaller:
         install_requirements: bool = False,
         system_wide: bool = False,
         requirements_patterns: typing.List[str] = None,
+        python_bin=None,
     ) -> AnsibleCollectionInstallMainReport:
-        self.__command_runner.run_process(
-            [
-                sys.executable,
-                "-m",
-                "ansible.cli.galaxy",
-                "collection",
-                "download",
-                url or name,
-            ],
+        self.__python_manager.run_module(
+            "ansible.cli.galaxy",
+            "collection",
+            "download",
+            url or name,
             cwd=str(self.__base_path),
         )
+
         downloaded_base_dir = self.__base_path.joinpath("collections")
         collection_data, dependencies = self.__parse_collection_download_content(
             downloaded_base_dir, requirements_patterns
@@ -87,23 +72,19 @@ class AnsibleCollectionInstaller:
             if system_wide
             else []
         )
-        self.__command_runner.run_process(
-            [
-                sys.executable,
-                "-m",
-                "ansible.cli.galaxy",
-                "collection",
-                "install",
-                "--force",
-                "-r",
-                "requirements.yml",
-            ]
-            + path_opts,
+        self.__python_manager.run_module(
+            "ansible.cli.galaxy",
+            "collection",
+            "install",
+            "--force",
+            "-r",
+            "requirements.yml",
+            *path_opts,
             cwd=str(downloaded_base_dir),
         )
         # Compute the path after installation
-        collection_data = collection_data.with_fields(
-            collection_path=self.__get_collection_path(name)
+        collection_data = dataclasses.replace(
+            collection_data, collection_path=self.__get_collection_path(name)
         )
         if install_requirements:
             return self.__install_requirements_and_update(collection_data, dependencies)
@@ -121,14 +102,18 @@ class AnsibleCollectionInstaller:
             pip_reports = []
             for requirement in collection.requirements:
                 pip_reports.extend(
-                    self.__package_manager.install_pip_requirements(
+                    self.__python_manager.install_pip_requirements(
                         requirements_content=requirement
                     )
                 )
             if collection == collection_data:
-                main_collection_report = collection.with_fields(pip_reports)
+                main_collection_report = dataclasses.replace(
+                    collection, pip_reports=pip_reports
+                )
             else:
-                dependencies_reports.append(collection.with_fields(pip_reports))
+                dependencies_reports.append(
+                    dataclasses.replace(collection, pip_reports=pip_reports)
+                )
         return AnsibleCollectionInstallMainReport(
             main_collection_report or collection_data,
             dependencies_reports or dependencies,
@@ -268,18 +253,14 @@ class AnsibleCollectionInstaller:
         return self.__get_tar_member_string_content(tar_file, tar_member)
 
     def __get_collection_path(
-        self, collection_name: str
+        self, collection_name: str, python_bin=None
     ) -> typing.Optional[pathlib.Path]:
         config_params = json.loads(
-            self.__command_runner.check_output(
-                [
-                    sys.executable,
-                    "-m",
-                    "ansible.cli.config",
-                    "dump",
-                    "--format",
-                    "json",
-                ],
+            self.__python_manager.run_module_check_output(
+                "ansible.cli.config",
+                "dump",
+                "--format",
+                "json",
             )
         )
         collection_paths = next(

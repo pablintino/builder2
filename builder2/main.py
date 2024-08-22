@@ -10,7 +10,6 @@ def __build_args_parser():
     subparsers = parser.add_subparsers(dest="command", required=True)
     bootstrap.register(subparsers)
     install.register(subparsers)
-    install.register(subparsers)
     load_certificates.register(subparsers)
     get.register(subparsers)
     source.register(subparsers)

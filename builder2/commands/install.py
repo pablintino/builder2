@@ -1,6 +1,7 @@
 import logging
 import os
 import pathlib
+import typing
 from typing import Dict
 
 import marshmallow.exceptions
@@ -39,28 +40,63 @@ def __load_toolchain_metadata(path, file_manager) -> ToolchainMetadataConfigurat
         ) from err
 
 
+def __sort_components_stack(
+    components_dependencies_graph, graph_iface, visited, components_stack
+):
+    visited.append(graph_iface)
+
+    element = components_dependencies_graph[graph_iface]
+    if element and element not in visited:
+        __sort_components_stack(
+            components_dependencies_graph, element, visited, components_stack
+        )
+    components_stack.append(graph_iface)
+
+
+def __sort_components(
+    component_configs: typing.Dict[str, BaseComponentConfiguration]
+) -> typing.Dict[str, BaseComponentConfiguration]:
+    # Prepare the dependency graph
+    components_dependencies_graph = {}
+    components_graph_set = set()
+
+    for name, data in component_configs.items():
+        if name not in components_dependencies_graph:
+            components_dependencies_graph[name] = None
+        components_dependencies_graph[name] = data.depends_on
+        components_graph_set.add(name)
+
+    visited = []
+    components_stack = []
+    for graph_iface in components_graph_set:
+        if graph_iface not in visited:
+            __sort_components_stack(
+                components_dependencies_graph,
+                graph_iface,
+                visited,
+                components_stack,
+            )
+
+    return {name: component_configs[name] for name in components_stack}
+
+
 def __install_components(
     components: Dict[str, BaseComponentConfiguration],
     target_dir: str,
     installation_summary: InstallationSummary,
     conan_manager: ConanManager,
 ):
-    for component_key, component_config in components.items():
+    for component_key, component_config in __sort_components(components).items():
         with container_instance.tool_installers(
             type(component_config).__name__, component_key, component_config, target_dir
         ) as installer:
-            component_installation_result = installer.run_installation()
+            installation_model = installer.run_installation()
             conan_manager.add_profiles_to_component(
                 component_key,
-                component_installation_result.installation_model,
+                installation_model,
                 target_dir,
             )
-            installation_summary.add_component(
-                component_key, component_installation_result.installation_model
-            )
-            installation_summary.add_packages(
-                component_installation_result.side_packages
-            )
+            installation_summary.add_component(component_key, installation_model)
 
 
 @inject
@@ -92,11 +128,11 @@ def __install(
         )
 
         # Ensure build transient packages are removed before saving the installation summary
-        package_manager.clean_transient()
+        package_manager.cleanup()
 
-        installation_summary.add_packages(
-            list(package_manager.installed_packages.values())
-        )
+        # installation_summary.add_packages(
+        #     list(package_manager.installed_packages.values())
+        # )
 
         installation_summary.save(target_dir)
 

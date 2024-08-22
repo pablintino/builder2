@@ -43,6 +43,8 @@ class BaseComponentConfiguration:
     version: str = None
     required_packages: list = None
     aliases: list = None
+    use_venv: bool = False
+    depends_on: str = None
 
 
 @dataclasses.dataclass
@@ -106,6 +108,7 @@ class MavenConfiguration(BaseComponentConfiguration):
 @dataclasses.dataclass
 class PipBasedToolConfiguration(BaseComponentConfiguration):
     index: str = None
+    use_venv: bool = False
 
 
 @dataclasses.dataclass
@@ -125,6 +128,7 @@ class AnsibleCollectionConfiguration(BaseComponentConfiguration):
     install_requirements: bool = None
     system_wide: bool = None
     req_regexes: typing.List[str] = None
+    use_venv: bool = False
 
 
 @dataclasses.dataclass
@@ -204,6 +208,9 @@ class BaseComponentSchema(Schema):
         load_default=[],
     )
     version = fields.Str(required=False, load_default=None)
+    depends_on = fields.Str(
+        data_key="depends-on", required=False, load_default=None, dump_default=None
+    )
 
 
 class UrlBasedComponentSchema(BaseComponentSchema):
@@ -301,6 +308,9 @@ class AnsibleCollectionInstallSchema(BaseComponentSchema):
     req_regexes = fields.List(
         fields.String, data_key="requirements-regexes", load_default=[]
     )
+    use_venv = fields.Boolean(
+        data_key="use-venv", load_default=False, dump_default=False
+    )
 
     @validates_schema
     def validate_numbers(self, data, **_):
@@ -332,6 +342,9 @@ class AnsibleSchema(BaseComponentSchema):
         load_default=None,
         required=False,
         allow_none=True,
+    )
+    use_venv = fields.Boolean(
+        data_key="use-venv", load_default=False, dump_default=False
     )
 
     @post_load

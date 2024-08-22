@@ -1,4 +1,6 @@
 import dataclasses
+import os.path
+import pathlib
 from typing import Dict
 
 from dependency_injector import containers, providers
@@ -11,6 +13,7 @@ from builder2.environment_builder import EnvironmentBuilder
 from builder2.file_manager import FileManager
 from builder2.models.metadata_models import BaseComponentConfiguration
 from builder2.package_manager import PackageManager
+from builder2.python_manager import PythonManager
 from builder2.tools import (
     AnsibleInstaller,
     AnsibleCollectionInstaller,
@@ -52,7 +55,16 @@ class Container(containers.DeclarativeContainer):
 
     cryptographic_provider = providers.Singleton(CryptographicProvider, file_manager)
 
-    package_manager = providers.Singleton(PackageManager, command_runner)
+    python_manager = providers.Singleton(
+        PythonManager,
+        command_runner,
+        file_manager,
+        target_path=config.target_dir,
+    )
+
+    package_manager = providers.Singleton(
+        PackageManager, command_runner, python_manager
+    )
 
     conan_manager = providers.Singleton(ConanManager, file_manager, command_runner)
 
@@ -68,6 +80,7 @@ class Container(containers.DeclarativeContainer):
         package_manager=package_manager,
         core_count=config.core_count,
         time_multiplier=config.timout_mult,
+        python_manager=python_manager,
     )
 
     jdk_installer_factory = providers.Factory(
@@ -79,6 +92,7 @@ class Container(containers.DeclarativeContainer):
         java_tools=java_tools,
         core_count=config.core_count,
         time_multiplier=config.timout_mult,
+        python_manager=python_manager,
     )
 
     gcc_sources_installer_factory = providers.Factory(
@@ -90,6 +104,7 @@ class Container(containers.DeclarativeContainer):
         compilers_support=compilers_support,
         core_count=config.core_count,
         time_multiplier=config.timout_mult,
+        python_manager=python_manager,
     )
 
     cmake_sources_installer_factory = providers.Factory(
@@ -100,6 +115,7 @@ class Container(containers.DeclarativeContainer):
         package_manager=package_manager,
         core_count=config.core_count,
         time_multiplier=config.timout_mult,
+        python_manager=python_manager,
     )
 
     cppcheck_sources_installer_factory = providers.Factory(
@@ -110,6 +126,7 @@ class Container(containers.DeclarativeContainer):
         package_manager=package_manager,
         core_count=config.core_count,
         time_multiplier=config.timout_mult,
+        python_manager=python_manager,
     )
 
     download_only_sources_installer_factory = providers.Factory(
@@ -120,6 +137,7 @@ class Container(containers.DeclarativeContainer):
         package_manager=package_manager,
         core_count=config.core_count,
         time_multiplier=config.timout_mult,
+        python_manager=python_manager,
     )
 
     download_only_compiler_installer_factory = providers.Factory(
@@ -131,6 +149,7 @@ class Container(containers.DeclarativeContainer):
         compilers_support=compilers_support,
         core_count=config.core_count,
         time_multiplier=config.timout_mult,
+        python_manager=python_manager,
     )
 
     valgrind_sources_installer_factory = providers.Factory(
@@ -141,6 +160,7 @@ class Container(containers.DeclarativeContainer):
         package_manager=package_manager,
         core_count=config.core_count,
         time_multiplier=config.timout_mult,
+        python_manager=python_manager,
     )
 
     clang_sources_installer_factory = providers.Factory(
@@ -152,6 +172,7 @@ class Container(containers.DeclarativeContainer):
         compilers_support=compilers_support,
         core_count=config.core_count,
         time_multiplier=config.timout_mult,
+        python_manager=python_manager,
     )
 
     tool_source_installer_factory = providers.Factory(
@@ -162,6 +183,7 @@ class Container(containers.DeclarativeContainer):
         package_manager=package_manager,
         core_count=config.core_count,
         time_multiplier=config.timout_mult,
+        python_manager=python_manager,
     )
 
     ansible_installer_factory = providers.Factory(
@@ -172,6 +194,7 @@ class Container(containers.DeclarativeContainer):
         package_manager=package_manager,
         core_count=config.core_count,
         time_multiplier=config.timout_mult,
+        python_manager=python_manager,
     )
 
     ansible_collection_installer_factory = providers.Factory(
@@ -182,6 +205,7 @@ class Container(containers.DeclarativeContainer):
         package_manager=package_manager,
         core_count=config.core_count,
         time_multiplier=config.timout_mult,
+        python_manager=python_manager,
     )
 
     tool_installers = providers.Aggregate(
