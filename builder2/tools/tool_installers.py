@@ -16,7 +16,7 @@ from builder2.exceptions import BuilderException
 from builder2.file_manager import FileManager
 from builder2.models.installation_models import (
     ComponentInstallationModel,
-    PackageInstallationModel,
+    PackageInstallationModel, PipPackageInstallationModel,
 )
 from builder2.models.metadata_models import (
     AptPackageInstallationConfiguration,
@@ -138,7 +138,7 @@ class ToolInstaller(metaclass=abc.ABCMeta):
         )
 
     def _compute_tool_packages(
-        self,
+            self,
     ) -> typing.List[BasePackageInstallationConfiguration]:
         return []
 
@@ -276,7 +276,7 @@ class CMakeSourcesInstaller(ToolSourceInstaller):
         ]
 
     def _compute_tool_packages(
-        self,
+            self,
     ) -> typing.List[BasePackageInstallationConfiguration]:
 
         return [
@@ -387,7 +387,7 @@ class GccSourcesInstaller(ToolSourceInstaller):
         )
 
     def _compute_tool_packages(
-        self,
+            self,
     ) -> typing.List[BasePackageInstallationConfiguration]:
 
         return [
@@ -489,7 +489,7 @@ class ClangSourcesInstaller(ToolSourceInstaller):
         )
 
     def _compute_tool_packages(
-        self,
+            self,
     ) -> typing.List[BasePackageInstallationConfiguration]:
 
         return [
@@ -556,7 +556,7 @@ class CppCheckSourcesInstaller(ToolSourceInstaller):
             super()._compute_tool_version()
 
     def _compute_tool_packages(
-        self,
+            self,
     ) -> typing.List[BasePackageInstallationConfiguration]:
 
         packages = [
@@ -601,7 +601,7 @@ class ValgrindSourcesInstaller(ToolSourceInstaller):
             super()._compute_tool_version()
 
     def _compute_tool_packages(
-        self,
+            self,
     ) -> typing.List[BasePackageInstallationConfiguration]:
         return [
             AptPackageInstallationConfiguration(
@@ -743,24 +743,23 @@ class PipBasedToolInstaller(ToolInstaller):
     def _acquire_packages(self):
         # Call the parent method first to install early dependencies if required
         super()._acquire_packages()
+        install_config = PipPackageInstallationConfiguration(
+            name=self._config.name,
+            version=self._config.version,
+            index=self._config.url,
+            force=True,
+        )
         self._pip_install_report = self._python_manager.install_pip_package(
-            PipPackageInstallationConfiguration(
-                name=self._config.name,
-                version=self._config.version,
-                index=self._config.url,
-                force=True,
-            )
+            install_config
         )
         if self._pip_install_report:
             self._package_hash = self._pip_install_report.pip_hash
-            self._pip_package_path = self._python_manager.fetch_package_location(
-                self._config.name
-            )
+            self._pip_package_path = pathlib.Path(self._pip_install_report.location)
 
     def _compute_tool_version(self):
         if (
-            self._config.version
-            and self._pip_install_report.version != self._config.version
+                self._config.version
+                and self._pip_install_report.version != self._config.version
         ):
             raise BuilderException(
                 f"Unable to gather the specified package version {self._config.version}."
@@ -778,7 +777,7 @@ class PipBasedToolInstaller(ToolInstaller):
     def _compute_wellknown_paths(self):
         if self._pip_package_path:
             pip_entry_points = (
-                self._python_manager.fetch_entry_points(self._pip_package_path) or {}
+                    self._python_manager.fetch_entry_points(self._pip_package_path) or {}
             )
             self._wellknown_paths.update(pip_entry_points)
 
@@ -790,11 +789,12 @@ class AnsibleInstaller(PipBasedToolInstaller):
             entry_points_package="ansible-core",
             **kwargs,
         )
+        self._runner_install_report: typing.Optional[PipPackageInstallationModel] = None
 
     def _acquire_packages(self):
         super()._acquire_packages()
         if self._config.runner and self._config.runner.install:
-            self._python_manager.install_pip_package(
+            self._runner_install_report = self._python_manager.install_pip_package(
                 PipPackageInstallationConfiguration(
                     name="ansible-runner",
                     version=self._config.runner.version,
@@ -807,15 +807,11 @@ class AnsibleInstaller(PipBasedToolInstaller):
     def _compute_wellknown_paths(self):
         super()._compute_wellknown_paths()
         if self._config.runner and self._config.runner.install:
-            pip_runner_package_path = self._python_manager.fetch_package_location(
-                "ansible-runner"
-            )
-            if pip_runner_package_path:
-                pip_entry_points = (
-                    self._python_manager.fetch_entry_points(pip_runner_package_path)
+            pip_entry_points = (
+                    self._python_manager.fetch_entry_points(pathlib.Path(self._runner_install_report.location))
                     or {}
-                )
-                self._wellknown_paths.update(pip_entry_points)
+            )
+            self._wellknown_paths.update(pip_entry_points)
 
 
 class AnsibleCollectionInstaller(ToolInstaller):
@@ -845,8 +841,8 @@ class AnsibleCollectionInstaller(ToolInstaller):
 
     def _compute_tool_version(self):
         if (
-            self._config.version
-            and self._install_report.main_collection.version != self._config.version
+                self._config.version
+                and self._install_report.main_collection.version != self._config.version
         ):
             raise BuilderException(
                 f"Unable to gather the specified collection version {self._config.version}."
@@ -858,8 +854,8 @@ class AnsibleCollectionInstaller(ToolInstaller):
 
     def _compute_tool_path(self) -> pathlib.Path:
         if (
-            self._install_report
-            and self._install_report.main_collection.collection_path
+                self._install_report
+                and self._install_report.main_collection.collection_path
         ):
             collection_path = self._install_report.main_collection.collection_path
             if collection_path.is_dir():

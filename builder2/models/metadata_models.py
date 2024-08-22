@@ -157,7 +157,7 @@ class BasePackageInstallationSchema(Schema):
     )
 
 
-class PipPackageInstallationSchema(BasePackageInstallationSchema):
+class PipPackageInstallationConfigurationSchema(BasePackageInstallationSchema):
     index = fields.String(required=False, load_default=None, dump_default=None)
 
     @post_load
@@ -165,7 +165,7 @@ class PipPackageInstallationSchema(BasePackageInstallationSchema):
         return PipPackageInstallationConfiguration(**data)
 
 
-class AptPackageInstallationSchema(BasePackageInstallationSchema):
+class AptPackageInstallationConfigurationSchema(BasePackageInstallationSchema):
     @post_load
     def make_atp_config(self, data, **__):
         return AptPackageInstallationConfiguration(**data)
@@ -173,8 +173,8 @@ class AptPackageInstallationSchema(BasePackageInstallationSchema):
 
 class PackageInstallationConfigurationSchema(OneOfSchema):
     type_schemas = {
-        "pip": PipPackageInstallationSchema,
-        "apt": AptPackageInstallationSchema,
+        "pip": PipPackageInstallationConfigurationSchema,
+        "apt": AptPackageInstallationConfigurationSchema,
     }
 
     def get_obj_type(self, obj):
@@ -230,7 +230,7 @@ class CompilerBuildSchema(UrlBasedComponentSchema):
     )
 
 
-class GccComponentSchema(CompilerBuildSchema):
+class GccBuildConfigurationSchema(CompilerBuildSchema):
     languages = fields.List(fields.String, required=True)
     suffix_version = fields.Boolean(
         data_key="suffix-version", required=False, load_default=False
@@ -241,7 +241,7 @@ class GccComponentSchema(CompilerBuildSchema):
         return GccBuildConfiguration(**data)
 
 
-class ClangComponentSchema(CompilerBuildSchema):
+class ClangBuildConfigurationSchema(CompilerBuildSchema):
     modules = fields.List(fields.String, required=True)
     runtimes = fields.List(fields.String, required=False, load_default=[])
 
@@ -250,7 +250,7 @@ class ClangComponentSchema(CompilerBuildSchema):
         return ClangBuildConfiguration(**data)
 
 
-class CppCheckComponentSchema(UrlBasedComponentSchema):
+class CppCheckBuildConfigurationSchema(UrlBasedComponentSchema):
     compile_rules = fields.Boolean(
         data_key="compile-rules", required=False, load_default=True
     )
@@ -260,43 +260,43 @@ class CppCheckComponentSchema(UrlBasedComponentSchema):
         return CppCheckBuildConfiguration(**data)
 
 
-class ValgrindComponentSchema(UrlBasedComponentSchema):
+class ValgrindBuildConfigurationSchema(UrlBasedComponentSchema):
     @post_load
     def make_valgrind_config(self, data, **__):
         return ValgrindBuildConfiguration(**data)
 
 
-class DownloadOnlyCompilerComponentSchema(UrlBasedComponentSchema):
+class DownloadOnlyCompilerConfigurationSchema(UrlBasedComponentSchema):
     @post_load
     def make_download_only_compiler_config(self, data, **__):
         return DownloadOnlyCompilerConfiguration(**data)
 
 
-class DownloadOnlyComponentSchema(UrlBasedComponentSchema):
+class DownloadOnlyConfigurationSchema(UrlBasedComponentSchema):
     @post_load
     def make_download_only_config(self, data, **__):
         return DownloadOnlyConfiguration(**data)
 
 
-class CmakeBuildComponentSchema(UrlBasedComponentSchema):
+class CmakeBuildConfigurationSchema(UrlBasedComponentSchema):
     @post_load
     def make_cmake_config(self, data, **__):
         return CmakeBuildConfiguration(**data)
 
 
-class JdkComponentSchema(UrlBasedComponentSchema):
+class JdkConfigurationSchema(UrlBasedComponentSchema):
     @post_load
     def make_jdk_config(self, data, **__):
         return JdkConfiguration(**data)
 
 
-class MavenComponentSchema(UrlBasedComponentSchema):
+class MavenConfigurationSchema(UrlBasedComponentSchema):
     @post_load
     def make_maven_config(self, data, **__):
         return MavenConfiguration(**data)
 
 
-class AnsibleCollectionInstallSchema(BaseComponentSchema):
+class AnsibleCollectionConfigurationSchema(BaseComponentSchema):
     url = fields.Str(required=False)
     install_requirements = fields.Boolean(
         data_key="install-requirements", required=False, load_default=True
@@ -322,7 +322,7 @@ class AnsibleCollectionInstallSchema(BaseComponentSchema):
         return AnsibleCollectionConfiguration(**data)
 
 
-class AnsibleRunnerInstallationSchema(Schema):
+class AnsibleRunnerConfigurationSchema(Schema):
     version = fields.Str(required=False, load_default=None)
     install = fields.Boolean(required=False, load_default=True, dump_default=True)
     index = fields.String(required=False, load_default=None, dump_default=None)
@@ -332,13 +332,13 @@ class AnsibleRunnerInstallationSchema(Schema):
         return AnsibleRunnerConfiguration(**data)
 
 
-class AnsibleSchema(BaseComponentSchema):
+class AnsibleConfigurationSchema(BaseComponentSchema):
     name = fields.Str(
         required=True, validate=validate.OneOf(["ansible", "ansible-core"])
     )
     index = fields.String(required=False, load_default=None, dump_default=None)
     runner = fields.Nested(
-        AnsibleRunnerInstallationSchema,
+        AnsibleRunnerConfigurationSchema,
         load_default=None,
         required=False,
         allow_none=True,
@@ -354,18 +354,18 @@ class AnsibleSchema(BaseComponentSchema):
 
 class ToolchainComponentSchema(OneOfSchema):
     type_schemas = {
-        "gcc-build": GccComponentSchema,
-        "clang-build": ClangComponentSchema,
-        "cppcheck-build": CppCheckComponentSchema,
-        "valgrind-build": ValgrindComponentSchema,
-        "download-only-compiler": DownloadOnlyCompilerComponentSchema,
-        "download-only": DownloadOnlyComponentSchema,
+        "gcc-build": GccBuildConfigurationSchema,
+        "clang-build": ClangBuildConfigurationSchema,
+        "cppcheck-build": CppCheckBuildConfigurationSchema,
+        "valgrind-build": ValgrindBuildConfigurationSchema,
+        "download-only-compiler": DownloadOnlyCompilerConfigurationSchema,
+        "download-only": DownloadOnlyConfigurationSchema,
         "source-build": SourceBuildSchema,
-        "cmake-build": CmakeBuildComponentSchema,
-        "jdk": JdkComponentSchema,
-        "maven": MavenComponentSchema,
-        "ansible": AnsibleSchema,
-        "ansible-collection": AnsibleCollectionInstallSchema,
+        "cmake-build": CmakeBuildConfigurationSchema,
+        "jdk": JdkConfigurationSchema,
+        "maven": MavenConfigurationSchema,
+        "ansible": AnsibleConfigurationSchema,
+        "ansible-collection": AnsibleCollectionConfigurationSchema,
     }
 
     def get_obj_type(self, obj):
@@ -397,7 +397,7 @@ class ToolchainComponentSchema(OneOfSchema):
         raise Exception("Unknown object type: {}".format(obj.__class__.__name__))
 
 
-class ToolchainMetadataSchema(Schema):
+class ToolchainMetadataConfigurationSchema(Schema):
     components = fields.Dict(
         keys=fields.Str(), values=fields.Nested(ToolchainComponentSchema)
     )

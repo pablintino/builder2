@@ -16,7 +16,7 @@ from builder2.commands import command_commons
 from builder2.exceptions import BuilderException, BuilderValidationException
 from builder2.installation_summary import InstallationSummary
 from builder2.models.metadata_models import (
-    ToolchainMetadataSchema,
+    ToolchainMetadataConfigurationSchema,
     ToolchainMetadataConfiguration,
     BaseComponentConfiguration,
 )
@@ -27,7 +27,7 @@ __logger = logging.getLogger(__name__)
 
 def __load_toolchain_metadata(path, file_manager) -> ToolchainMetadataConfiguration:
     try:
-        return ToolchainMetadataSchema().load(
+        return ToolchainMetadataConfigurationSchema().load(
             data=file_manager.read_json_file(pathlib.Path(path).absolute())
         )
     except FileNotFoundError as err:
@@ -41,7 +41,7 @@ def __load_toolchain_metadata(path, file_manager) -> ToolchainMetadataConfigurat
 
 
 def __sort_components_stack(
-    components_dependencies_graph, graph_iface, visited, components_stack
+        components_dependencies_graph, graph_iface, visited, components_stack
 ):
     visited.append(graph_iface)
 
@@ -54,7 +54,7 @@ def __sort_components_stack(
 
 
 def __sort_components(
-    component_configs: typing.Dict[str, BaseComponentConfiguration]
+        component_configs: typing.Dict[str, BaseComponentConfiguration]
 ) -> typing.Dict[str, BaseComponentConfiguration]:
     # Prepare the dependency graph
     components_dependencies_graph = {}
@@ -81,14 +81,14 @@ def __sort_components(
 
 
 def __install_components(
-    components: Dict[str, BaseComponentConfiguration],
-    target_dir: str,
-    installation_summary: InstallationSummary,
-    conan_manager: ConanManager,
+        components: Dict[str, BaseComponentConfiguration],
+        target_dir: str,
+        installation_summary: InstallationSummary,
+        conan_manager: ConanManager,
 ):
     for component_key, component_config in __sort_components(components).items():
         with container_instance.tool_installers(
-            type(component_config).__name__, component_key, component_config, target_dir
+                type(component_config).__name__, component_key, component_config, target_dir
         ) as installer:
             installation_model = installer.run_installation()
             conan_manager.add_profiles_to_component(
@@ -101,11 +101,11 @@ def __install_components(
 
 @inject
 def __install(
-    args,
-    file_manager: FileManager = Provide[Container.file_manager],
-    package_manager: PackageManager = Provide[Container.package_manager],
-    conan_manager: ConanManager = Provide[Container.conan_manager],
-    target_dir: str = Provide[Container.config.target_dir],
+        args,
+        file_manager: FileManager = Provide[Container.file_manager],
+        package_manager: PackageManager = Provide[Container.package_manager],
+        conan_manager: ConanManager = Provide[Container.conan_manager],
+        target_dir: str = Provide[Container.config.target_dir],
 ):
     builder2.loggers.configure("INFO" if args.output else "ERROR")
 
@@ -130,9 +130,9 @@ def __install(
         # Ensure build transient packages are removed before saving the installation summary
         package_manager.cleanup()
 
-        # installation_summary.add_packages(
-        #     list(package_manager.installed_packages.values())
-        # )
+        installation_summary.add_packages(
+            list(package_manager.get_installed_packages())
+        )
 
         installation_summary.save(target_dir)
 

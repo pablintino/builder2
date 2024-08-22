@@ -1,5 +1,6 @@
 import dataclasses
 import logging
+import typing
 
 from builder2.command_line import CommandRunner
 from builder2.exceptions import BuilderException
@@ -25,7 +26,7 @@ class PackageManager:
         self.__uninstalled_packages = {}
 
     def install_pip_package(
-        self, package: PipPackageInstallationConfiguration
+            self, package: PipPackageInstallationConfiguration
     ) -> PipPackageInstallationModel:
         installation_model = self._python_manager.install_pip_package(package)
         self.__run_post_commands(package.post_installation)
@@ -43,7 +44,7 @@ class PackageManager:
             self._apt_update_ran = True
 
     def __install_apt_package(
-        self, package: AptPackageInstallationConfiguration
+            self, package: AptPackageInstallationConfiguration
     ) -> PackageInstallationModel:
         self.__update_apt_sources()
 
@@ -61,9 +62,9 @@ class PackageManager:
 
     def __cleanup_apt_orphans(self):
         if any(
-            isinstance(package, AptPackageInstallationConfiguration)
-            and package.build_transient
-            for package in self.__uninstalled_packages.values()
+                isinstance(package, AptPackageInstallationConfiguration)
+                and package.build_transient
+                for package in self.__uninstalled_packages.values()
         ):
             self._command_runner.run_process(["apt-get", "autoremove", "-y"])
 
@@ -91,8 +92,8 @@ class PackageManager:
                 # If the package was transient but is installed another time as
                 # non-transient make it transient
                 if (
-                    self.__installed_packages[key].configuration.build_transient
-                    and not package.build_transient
+                        self.__installed_packages[key].configuration.build_transient
+                        and not package.build_transient
                 ):
                     self.__installed_packages[key].configuration = dataclasses.replace(
                         self.__installed_packages[key].configuration,
@@ -120,12 +121,22 @@ class PackageManager:
         for package in transients:
             if package.configuration.build_transient:
                 if isinstance(
-                    package.configuration, PipPackageInstallationConfiguration
+                        package.configuration, PipPackageInstallationConfiguration
                 ):
-                    self._python_manager.pip_uninstall_package(package.configuration)
+                    self._python_manager.pip_uninstall(package.configuration)
                 elif isinstance(
-                    package.configuration, AptPackageInstallationConfiguration
+                        package.configuration, AptPackageInstallationConfiguration
                 ):
                     self.__uninstall_apt_package(package.configuration)
 
         self.__cleanup_apt_orphans()
+
+    def get_installed_packages(self) -> typing.List[PackageInstallationModel]:
+        packages = []
+        for package in self.__installed_packages.values():
+            if isinstance(package, PipPackageInstallationConfiguration):
+                # Discard Pip packages as we ask the python_manager for them directly
+                continue
+            packages.append(package)
+        packages.extend(self._python_manager.pip_list())
+        return packages

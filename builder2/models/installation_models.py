@@ -11,24 +11,25 @@ from builder2.models.metadata_models import (
     BaseComponentConfiguration,
     BasePackageInstallationConfiguration,
     AptPackageInstallationConfiguration,
-    PipPackageInstallationConfiguration,
+    PipPackageInstallationConfiguration, PipPackageInstallationConfigurationSchema,
+    AptPackageInstallationConfigurationSchema,
 )
 
 
 class ComponentInstallationModel:
     def __init__(
-        self,
-        name: str,
-        aliases: typing.List[str],
-        version: str,
-        path: str,
-        package_hash: str,
-        configuration: BaseComponentConfiguration,
-        triplet: str = None,
-        wellknown_paths: Dict[str, str] = None,
-        environment_vars: Dict[str, str] = None,
-        path_dirs: List[str] = None,
-        conan_profiles: Dict[str, str] = None,
+            self,
+            name: str,
+            aliases: typing.List[str],
+            version: str,
+            path: str,
+            package_hash: str,
+            configuration: BaseComponentConfiguration,
+            triplet: str = None,
+            wellknown_paths: Dict[str, str] = None,
+            environment_vars: Dict[str, str] = None,
+            path_dirs: List[str] = None,
+            conan_profiles: Dict[str, str] = None,
     ):
         self.version = version
         self.name = name
@@ -45,14 +46,22 @@ class ComponentInstallationModel:
 
 class PackageInstallationModel:
     def __init__(
-        self,
-        name: str,
-        version: str,
-        configuration: BasePackageInstallationConfiguration = None,
+            self,
+            name: str,
+            version: str,
+            configuration: BasePackageInstallationConfiguration = None,
     ):
         self.version = version
         self.name = name
         self.configuration = configuration
+
+    def __hash__(self) -> int:
+        return hash((self.name, self.version))
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, PackageInstallationModel):
+            return False
+        return self.name == other.name and self.version == other.version
 
 
 class AptPackageInstallationModel(PackageInstallationModel):
@@ -64,6 +73,14 @@ class PipPackageInstallationModel(PackageInstallationModel):
         super().__init__(*args, **kwargs)
         self.pip_hash = pip_hash
         self.location = location
+
+    def __hash__(self) -> int:
+        return hash((super().__hash__(), self.location))
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, PipPackageInstallationModel):
+            return False
+        return super().__eq__(other) and self.location == other.location
 
 
 @dataclasses.dataclass
@@ -136,7 +153,7 @@ class PackageInstallationSchema(Schema):
 class AptPackageInstallationSchema(PackageInstallationSchema):
     name = fields.Str(required=True)
     version = fields.Str(required=False, load_default=None, dump_default=None)
-    configuration = fields.Nested(AptPackageInstallationConfiguration, required=True)
+    configuration = fields.Nested(AptPackageInstallationConfigurationSchema, required=True)
 
     @post_load
     def make_apt_package_installation(self, data, **__):
@@ -151,7 +168,7 @@ class PipPackageInstallationSchema(PackageInstallationSchema):
     # Not required: Some packages are automatically installed
     # as a dependency and don't have an associated metadata
     configuration = fields.Nested(
-        PipPackageInstallationConfiguration,
+        PipPackageInstallationConfigurationSchema,
         required=False,
         dump_default=None,
         load_default=None,
@@ -170,9 +187,9 @@ class PackageInstallationSchema(OneOfSchema):
     }
 
     def get_obj_type(self, obj):
-        if isinstance(obj, PipPackageInstallationConfiguration):
+        if isinstance(obj, PipPackageInstallationModel):
             return "pip"
-        if isinstance(obj, AptPackageInstallationConfiguration):
+        if isinstance(obj, AptPackageInstallationModel):
             return "apt"
 
         raise Exception("Unknown object type: {}".format(obj.__class__.__name__))

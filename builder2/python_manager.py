@@ -1,4 +1,5 @@
 import configparser
+import itertools
 import json
 import logging
 import os
@@ -9,7 +10,6 @@ import tempfile
 import typing
 from os import PathLike
 
-
 from builder2 import command_line
 from builder2 import file_manager
 from builder2.exceptions import BuilderException
@@ -19,10 +19,10 @@ from builder2.models.metadata_models import PipPackageInstallationConfiguration
 
 class PythonManager:
     def __init__(
-        self,
-        command_runner: command_line.CommandRunner,
-        file_manager: file_manager.FileManager,
-        target_path: typing.Union[str, PathLike[str]],
+            self,
+            command_runner: command_line.CommandRunner,
+            file_manager: file_manager.FileManager,
+            target_path: typing.Union[str, PathLike[str]],
     ):
         self.__command_runner = command_runner
         self.__file_manager = file_manager
@@ -45,11 +45,11 @@ class PythonManager:
         return binary
 
     def get_create_env(
-        self,
-        target_path: pathlib.Path,
-        env_key: str,
-        depends_on: str = None,
-        create_venv: bool = False,
+            self,
+            target_path: pathlib.Path,
+            env_key: str,
+            depends_on: str = None,
+            create_venv: bool = False,
     ) -> "PythonManager":
         if env_key in self.__venvs:
             return self.__venvs[env_key]
@@ -84,9 +84,9 @@ class PythonManager:
         )
 
     def install_pip_package(
-        self, pip_package: PipPackageInstallationConfiguration
+            self, pip_package: PipPackageInstallationConfiguration
     ) -> PipPackageInstallationModel:
-        command = [self.__get_binary(), "-m", "pip", "install"]
+        command = ["install"]
         if pip_package.index:
             command.extend(["--index-url", pip_package.index])
         if pip_package.version:
@@ -98,9 +98,9 @@ class PythonManager:
 
         # Cannot use the new --report option because it doesn't point
         # to the installation location
-        self.__command_runner.run_process(command)
+        self.run_module("pip", *command)
         element_report = self.__get_pip_report_element_for_package(
-            pip_package, self.__pip_inspect()
+            pip_package.name, self.__pip_inspect(), version=pip_package.version
         )
         if not element_report:
             raise BuilderException(
@@ -111,9 +111,9 @@ class PythonManager:
         )
 
     def install_pip_requirements(
-        self,
-        requirements_file: str = None,
-        requirements_content: str = None,
+            self,
+            requirements_file: str = None,
+            requirements_content: str = None,
     ) -> typing.List[PipPackageInstallationModel]:
         report = self.__install_pip_requirements(
             requirements_file=requirements_file,
@@ -123,7 +123,7 @@ class PythonManager:
 
     @staticmethod
     def fetch_entry_points(
-        package_path: pathlib.Path,
+            package_path: pathlib.Path,
     ) -> typing.Optional[typing.Dict[str, str]]:
         if not package_path.exists():
             return None
@@ -162,36 +162,50 @@ class PythonManager:
         return result
 
     def fetch_package_location(
-        self, package_name: str
+            self, name: str, version: str = None
     ) -> typing.Optional[pathlib.Path]:
-        model = self.get_pip_model_by_package(package_name)
+        model = self.get_pip_model_by_package(name, version=version)
         if not model:
             return None
         location = pathlib.Path(model.location)
         return location if location.is_dir() else None
 
     def get_pip_model_by_package(
-        self,
-        package_name: str,
+            self,
+            name: str,
+            version: str = None
     ) -> typing.Optional[PipPackageInstallationModel]:
         element_report = self.__get_pip_report_element_for_package(
-            package_name, self.__pip_inspect()
+            name, self.__pip_inspect(), version=version
         )
         if not element_report:
             return None
         return self.__build_pip_installation_model_from_report_element(element_report)
 
-    def __pip_inspect(self) -> typing.Dict[str, typing.Any]:
-        return json.loads(
-            self.__command_runner.check_output(
-                [self.__get_binary(), "-m", "pip", "inspect"]
+    def pip_uninstall(self, package: PipPackageInstallationConfiguration):
+        package_command_arg = package.name if not package.version else f"{package.name}=={package.version}"
+        self.run_module("pip", "uninstall", "-y", package_command_arg)
+
+    def pip_list(self) -> typing.List[PipPackageInstallationModel]:
+        envs_packages = [env.pip_list() for env in self.__venvs.values()]
+        packages = set(itertools.chain(*envs_packages))
+        packages.update(
+            (
+                self.__build_pip_installation_model_from_report_element(element)
+                for element in self.__pip_inspect(local=True).get("installed", [])
             )
         )
+        return sorted(packages, key=lambda x: x.name)
+
+
+    def __pip_inspect(self, local: bool = False) -> typing.Dict[str, typing.Any]:
+        opts = ["--local"] if local else []
+        return json.loads(self.run_module_check_output("pip", "inspect", *opts))
 
     def __install_pip_requirements(
-        self,
-        requirements_file: str = None,
-        requirements_content: str = None,
+            self,
+            requirements_file: str = None,
+            requirements_content: str = None,
     ) -> typing.Dict[str, typing.Any]:
         with tempfile.TemporaryDirectory() as tmp_dir:
             temp_reqs_path = os.path.join(tmp_dir, "requirements.txt")
@@ -201,39 +215,28 @@ class PythonManager:
                 self.__file_manager.write_text_file(
                     temp_reqs_path, requirements_content
                 )
-            temp_file = os.path.join(tmp_dir, "report.json")
-            command = [
-                self.__get_binary(),
-                "-m",
-                "pip",
-                "install",
-                "-r",
-                temp_reqs_path,
-                "--report",
-                temp_file,
-                "--force",
-            ]
-            self.__command_runner.run_process(command, cwd=tmp_dir)
-            return self.__file_manager.read_json_file(temp_file)
+            self.run_module("pip", "install", "-r", temp_reqs_path, "--force", cwd=tmp_dir)
+            return self.__pip_inspect()
 
     @classmethod
     def __get_pip_report_element_for_package(
-        cls,
-        pip_package: PipPackageInstallationConfiguration,
-        pip_install_report: typing.Dict[str, typing.Any],
+            cls,
+            name: str,
+            pip_install_report: typing.Dict[str, typing.Any],
+            version: str = None
     ) -> typing.Optional[typing.Dict[str, typing.Any]]:
         return next(
             (
                 elem
-                for elem in pip_install_report.get("install", [])
+                for elem in pip_install_report.get("installed", [])
                 if (
-                    cls.__extract_name_from_pip_report_element(elem) == pip_package.name
-                )
-                and (
-                    not pip_package.version
-                    or pip_package.version
-                    == cls.__extract_version_from_pip_report_element(elem)
-                )
+                           cls.__extract_name_from_pip_report_element(elem) == name
+                   )
+                   and (
+                           not version
+                           or version
+                           == cls.__extract_version_from_pip_report_element(elem)
+                   )
             ),
             None,
         )
@@ -254,7 +257,7 @@ class PythonManager:
 
     @staticmethod
     def __extract_location_from_pip_report_element(
-        tool_element,
+            tool_element,
     ) -> pathlib.Path:
         if "metadata_location" not in tool_element:
             # todo context
@@ -275,7 +278,7 @@ class PythonManager:
 
     @classmethod
     def __build_installation_models_from_report(
-        cls, pip_install_report: typing.Dict[str, typing.Any]
+            cls, pip_install_report: typing.Dict[str, typing.Any]
     ) -> typing.List[PipPackageInstallationModel]:
         return [
             cls.__build_pip_installation_model_from_report_element(install_elem)
@@ -284,9 +287,9 @@ class PythonManager:
 
     @classmethod
     def __build_pip_installation_model_from_report_element(
-        cls,
-        install_elem: typing.Dict[str, typing.Any],
-        configuration: PipPackageInstallationConfiguration = None,
+            cls,
+            install_elem: typing.Dict[str, typing.Any],
+            configuration: PipPackageInstallationConfiguration = None,
     ):
         name = cls.__extract_name_from_pip_report_element(install_elem)
         version = cls.__extract_version_from_pip_report_element(install_elem)
@@ -299,28 +302,3 @@ class PythonManager:
             configuration=configuration,
             location=str(location),
         )
-
-    def pip_uninstall_package(self, package: PipPackageInstallationConfiguration):
-        package_command_arg = package.name
-        if package.version:
-            package_command_arg = f"{package_command_arg}=={package.version}"
-        command = [
-            self.__get_binary(),
-            "-m",
-            "pip",
-            "uninstall",
-            "-y",
-            package_command_arg,
-        ]
-        self.__command_runner.run_process(command)
-
-    def pip_list_packages(self) -> typing.List[PipPackageInstallationModel]:
-        packages = []
-        packages.extend((env.pip_list_packages() for env in self.__venvs.values()))
-        packages.extend(
-            (
-                self.__build_pip_installation_model_from_report_element(element)
-                for element in self.__pip_inspect().get("install", [])
-            )
-        )
-        return packages
