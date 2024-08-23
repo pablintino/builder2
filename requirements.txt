@@ -1,0 +1,16 @@
+certifi>=2024.7.4
+cffi>=1.17.0
+charset-normalizer>=3.3.2
+ConfigArgParse>=1.7
+cryptography>=43.0.0
+dependency-injector>=4.41.0
+idna>=3.7
+marshmallow>=3.21.3
+marshmallow-oneofschema>=3.1.1
+packaging>=24.1
+pycparser>=2.22
+pyparsing>=3.1.2
+pyaml>=23.9.7
+requests>=2.32.3
+six>=1.16.0
+urllib3>=2.2.2
