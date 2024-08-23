@@ -21,4 +21,4 @@ build: setup_env clean
 
 .PHONY: build_docker
 build_docker: build
-	docker image build . -t ${DOCKER_IMAGE_TAG}
+	docker image build . -t ${DOCKER_IMAGE_TAG} --no-cache --progress plain
