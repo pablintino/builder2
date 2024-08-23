@@ -19,10 +19,10 @@ from builder2.models.metadata_models import PipPackageInstallationConfiguration
 
 class PythonManager:
     def __init__(
-            self,
-            command_runner: command_line.CommandRunner,
-            file_manager: file_manager.FileManager,
-            target_path: typing.Union[str, PathLike[str]],
+        self,
+        command_runner: command_line.CommandRunner,
+        file_manager: file_manager.FileManager,
+        target_path: typing.Union[str, PathLike[str]],
     ):
         self.__command_runner = command_runner
         self.__file_manager = file_manager
@@ -45,11 +45,11 @@ class PythonManager:
         return binary
 
     def get_create_env(
-            self,
-            target_path: pathlib.Path,
-            env_key: str,
-            depends_on: str = None,
-            create_venv: bool = False,
+        self,
+        target_path: pathlib.Path,
+        env_key: str,
+        depends_on: str = None,
+        create_venv: bool = False,
     ) -> "PythonManager":
         if env_key in self.__venvs:
             return self.__venvs[env_key]
@@ -84,7 +84,7 @@ class PythonManager:
         )
 
     def install_pip_package(
-            self, pip_package: PipPackageInstallationConfiguration
+        self, pip_package: PipPackageInstallationConfiguration
     ) -> PipPackageInstallationModel:
         command = ["install"]
         if pip_package.index:
@@ -111,9 +111,9 @@ class PythonManager:
         )
 
     def install_pip_requirements(
-            self,
-            requirements_file: str = None,
-            requirements_content: str = None,
+        self,
+        requirements_file: str = None,
+        requirements_content: str = None,
     ) -> typing.List[PipPackageInstallationModel]:
         report = self.__install_pip_requirements(
             requirements_file=requirements_file,
@@ -123,7 +123,7 @@ class PythonManager:
 
     @staticmethod
     def fetch_entry_points(
-            package_path: pathlib.Path,
+        package_path: pathlib.Path,
     ) -> typing.Optional[typing.Dict[str, str]]:
         if not package_path.exists():
             return None
@@ -162,7 +162,7 @@ class PythonManager:
         return result
 
     def fetch_package_location(
-            self, name: str, version: str = None
+        self, name: str, version: str = None
     ) -> typing.Optional[pathlib.Path]:
         model = self.get_pip_model_by_package(name, version=version)
         if not model:
@@ -171,9 +171,7 @@ class PythonManager:
         return location if location.is_dir() else None
 
     def get_pip_model_by_package(
-            self,
-            name: str,
-            version: str = None
+        self, name: str, version: str = None
     ) -> typing.Optional[PipPackageInstallationModel]:
         element_report = self.__get_pip_report_element_for_package(
             name, self.__pip_inspect(), version=version
@@ -183,11 +181,15 @@ class PythonManager:
         return self.__build_pip_installation_model_from_report_element(element_report)
 
     def pip_uninstall(self, package: PipPackageInstallationConfiguration):
-        package_command_arg = package.name if not package.version else f"{package.name}=={package.version}"
+        package_command_arg = (
+            package.name
+            if not package.version
+            else f"{package.name}=={package.version}"
+        )
         self.run_module("pip", "uninstall", "-y", package_command_arg)
 
     def pip_list(self) -> typing.List[PipPackageInstallationModel]:
-        envs_packages = [env.pip_list() for env in self.__venvs.values()]
+        envs_packages = [env.pip_list() for env in self.__venvs.values() if env != self]
         packages = set(itertools.chain(*envs_packages))
         packages.update(
             (
@@ -197,15 +199,14 @@ class PythonManager:
         )
         return sorted(packages, key=lambda x: x.name)
 
-
     def __pip_inspect(self, local: bool = False) -> typing.Dict[str, typing.Any]:
         opts = ["--local"] if local else []
         return json.loads(self.run_module_check_output("pip", "inspect", *opts))
 
     def __install_pip_requirements(
-            self,
-            requirements_file: str = None,
-            requirements_content: str = None,
+        self,
+        requirements_file: str = None,
+        requirements_content: str = None,
     ) -> typing.Dict[str, typing.Any]:
         with tempfile.TemporaryDirectory() as tmp_dir:
             temp_reqs_path = os.path.join(tmp_dir, "requirements.txt")
@@ -215,28 +216,27 @@ class PythonManager:
                 self.__file_manager.write_text_file(
                     temp_reqs_path, requirements_content
                 )
-            self.run_module("pip", "install", "-r", temp_reqs_path, "--force", cwd=tmp_dir)
+            self.run_module(
+                "pip", "install", "-r", temp_reqs_path, "--force", cwd=tmp_dir
+            )
             return self.__pip_inspect()
 
     @classmethod
     def __get_pip_report_element_for_package(
-            cls,
-            name: str,
-            pip_install_report: typing.Dict[str, typing.Any],
-            version: str = None
+        cls,
+        name: str,
+        pip_install_report: typing.Dict[str, typing.Any],
+        version: str = None,
     ) -> typing.Optional[typing.Dict[str, typing.Any]]:
         return next(
             (
                 elem
                 for elem in pip_install_report.get("installed", [])
-                if (
-                           cls.__extract_name_from_pip_report_element(elem) == name
-                   )
-                   and (
-                           not version
-                           or version
-                           == cls.__extract_version_from_pip_report_element(elem)
-                   )
+                if (cls.__extract_name_from_pip_report_element(elem) == name)
+                and (
+                    not version
+                    or version == cls.__extract_version_from_pip_report_element(elem)
+                )
             ),
             None,
         )
@@ -257,7 +257,7 @@ class PythonManager:
 
     @staticmethod
     def __extract_location_from_pip_report_element(
-            tool_element,
+        tool_element,
     ) -> pathlib.Path:
         if "metadata_location" not in tool_element:
             # todo context
@@ -278,7 +278,7 @@ class PythonManager:
 
     @classmethod
     def __build_installation_models_from_report(
-            cls, pip_install_report: typing.Dict[str, typing.Any]
+        cls, pip_install_report: typing.Dict[str, typing.Any]
     ) -> typing.List[PipPackageInstallationModel]:
         return [
             cls.__build_pip_installation_model_from_report_element(install_elem)
@@ -287,9 +287,9 @@ class PythonManager:
 
     @classmethod
     def __build_pip_installation_model_from_report_element(
-            cls,
-            install_elem: typing.Dict[str, typing.Any],
-            configuration: PipPackageInstallationConfiguration = None,
+        cls,
+        install_elem: typing.Dict[str, typing.Any],
+        configuration: PipPackageInstallationConfiguration = None,
     ):
         name = cls.__extract_name_from_pip_report_element(install_elem)
         version = cls.__extract_version_from_pip_report_element(install_elem)
