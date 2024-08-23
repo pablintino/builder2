@@ -1,8 +1,8 @@
 import dataclasses
 import typing
+from datetime import datetime
 from typing import List, Dict
 
-from datetime import datetime
 from marshmallow import fields, Schema, post_load
 from marshmallow_oneofschema import OneOfSchema
 
@@ -10,26 +10,25 @@ from builder2.models.metadata_models import (
     ToolchainComponentSchema,
     BaseComponentConfiguration,
     BasePackageInstallationConfiguration,
-    AptPackageInstallationConfiguration,
-    PipPackageInstallationConfiguration, PipPackageInstallationConfigurationSchema,
+    PipPackageInstallationConfigurationSchema,
     AptPackageInstallationConfigurationSchema,
 )
 
 
 class ComponentInstallationModel:
     def __init__(
-            self,
-            name: str,
-            aliases: typing.List[str],
-            version: str,
-            path: str,
-            package_hash: str,
-            configuration: BaseComponentConfiguration,
-            triplet: str = None,
-            wellknown_paths: Dict[str, str] = None,
-            environment_vars: Dict[str, str] = None,
-            path_dirs: List[str] = None,
-            conan_profiles: Dict[str, str] = None,
+        self,
+        name: str,
+        aliases: typing.List[str],
+        version: str,
+        path: str,
+        package_hash: str,
+        configuration: BaseComponentConfiguration,
+        triplet: str = None,
+        wellknown_paths: Dict[str, str] = None,
+        environment_vars: Dict[str, str] = None,
+        path_dirs: List[str] = None,
+        conan_profiles: Dict[str, str] = None,
     ):
         self.version = version
         self.name = name
@@ -46,10 +45,10 @@ class ComponentInstallationModel:
 
 class PackageInstallationModel:
     def __init__(
-            self,
-            name: str,
-            version: str,
-            configuration: BasePackageInstallationConfiguration = None,
+        self,
+        name: str,
+        version: str,
+        configuration: BasePackageInstallationConfiguration = None,
     ):
         self.version = version
         self.name = name
@@ -153,7 +152,9 @@ class PackageInstallationSchema(Schema):
 class AptPackageInstallationSchema(PackageInstallationSchema):
     name = fields.Str(required=True)
     version = fields.Str(required=False, load_default=None, dump_default=None)
-    configuration = fields.Nested(AptPackageInstallationConfigurationSchema, required=True)
+    configuration = fields.Nested(
+        AptPackageInstallationConfigurationSchema, required=True
+    )
 
     @post_load
     def make_apt_package_installation(self, data, **__):

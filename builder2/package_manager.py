@@ -7,6 +7,7 @@ from builder2.exceptions import BuilderException
 from builder2.models.installation_models import (
     PackageInstallationModel,
     PipPackageInstallationModel,
+    AptPackageInstallationModel,
 )
 from builder2.models.metadata_models import (
     PipPackageInstallationConfiguration,
@@ -26,7 +27,7 @@ class PackageManager:
         self.__uninstalled_packages = {}
 
     def install_pip_package(
-            self, package: PipPackageInstallationConfiguration
+        self, package: PipPackageInstallationConfiguration
     ) -> PipPackageInstallationModel:
         installation_model = self._python_manager.install_pip_package(package)
         self.__run_post_commands(package.post_installation)
@@ -44,7 +45,7 @@ class PackageManager:
             self._apt_update_ran = True
 
     def __install_apt_package(
-            self, package: AptPackageInstallationConfiguration
+        self, package: AptPackageInstallationConfiguration
     ) -> PackageInstallationModel:
         self.__update_apt_sources()
 
@@ -56,15 +57,15 @@ class PackageManager:
         )
 
         self.__run_post_commands(package.post_installation)
-        return PackageInstallationModel(
+        return AptPackageInstallationModel(
             package.name, package.version, configuration=package
         )
 
     def __cleanup_apt_orphans(self):
         if any(
-                isinstance(package, AptPackageInstallationConfiguration)
-                and package.build_transient
-                for package in self.__uninstalled_packages.values()
+            isinstance(package, AptPackageInstallationConfiguration)
+            and package.build_transient
+            for package in self.__uninstalled_packages.values()
         ):
             self._command_runner.run_process(["apt-get", "autoremove", "-y"])
 
@@ -92,8 +93,8 @@ class PackageManager:
                 # If the package was transient but is installed another time as
                 # non-transient make it transient
                 if (
-                        self.__installed_packages[key].configuration.build_transient
-                        and not package.build_transient
+                    self.__installed_packages[key].configuration.build_transient
+                    and not package.build_transient
                 ):
                     self.__installed_packages[key].configuration = dataclasses.replace(
                         self.__installed_packages[key].configuration,
@@ -121,11 +122,11 @@ class PackageManager:
         for package in transients:
             if package.configuration.build_transient:
                 if isinstance(
-                        package.configuration, PipPackageInstallationConfiguration
+                    package.configuration, PipPackageInstallationConfiguration
                 ):
                     self._python_manager.pip_uninstall(package.configuration)
                 elif isinstance(
-                        package.configuration, AptPackageInstallationConfiguration
+                    package.configuration, AptPackageInstallationConfiguration
                 ):
                     self.__uninstall_apt_package(package.configuration)
 
