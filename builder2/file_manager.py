@@ -101,10 +101,22 @@ class FileManager:
     @classmethod
     def read_file_as_text(
         cls, path: typing.Union[str, os.PathLike], ignore_failure: bool = False
-    ) -> str:
+    ) -> typing.Optional[str]:
         try:
             with open(path, "r") as file:
                 return file.read()
+        except FileNotFoundError as err:
+            if not ignore_failure:
+                raise err
+        return None
+
+    @classmethod
+    def read_file_as_text_lines(
+        cls, path: typing.Union[str, os.PathLike], ignore_failure: bool = False
+    ) -> typing.Optional[typing.List[str]]:
+        try:
+            with open(path, "r") as file:
+                return file.readlines()
         except FileNotFoundError as err:
             if not ignore_failure:
                 raise err

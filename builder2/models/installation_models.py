@@ -68,7 +68,7 @@ class AptPackageInstallationModel(PackageInstallationModel):
 
 
 class PipPackageInstallationModel(PackageInstallationModel):
-    def __init__(self, *args, pip_hash: str, location: str, **kwargs):
+    def __init__(self, *args, pip_hash: str = None, location: str = None, **kwargs):
         super().__init__(*args, **kwargs)
         self.pip_hash = pip_hash
         self.location = location

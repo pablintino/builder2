@@ -11,6 +11,7 @@ import typing
 from os import PathLike
 
 from builder2 import command_line
+from builder2 import cryptographic_provider
 from builder2 import file_manager
 from builder2.exceptions import BuilderException
 from builder2.models.installation_models import PipPackageInstallationModel
@@ -21,10 +22,12 @@ class PythonManager:
     def __init__(
         self,
         command_runner: command_line.CommandRunner,
+        crypto_provider: cryptographic_provider.CryptographicProvider,
         file_manager: file_manager.FileManager,
         target_path: typing.Union[str, PathLike[str]],
     ):
         self.__command_runner = command_runner
+        self.__crypto_provider = crypto_provider
         self.__file_manager = file_manager
         self.__venv_path = pathlib.Path(target_path).resolve().joinpath(".venv")
         self.__logger = logging.getLogger()
@@ -42,6 +45,7 @@ class PythonManager:
         self.__command_runner.run_process(
             [sys.executable, "-m", "venv", str(self.__venv_path)]
         )
+        self.run_module("pip", "install", "--upgrade", "pip")
         return binary
 
     def get_create_env(
@@ -66,7 +70,10 @@ class PythonManager:
             return self
 
         env = PythonManager(
-            self.__command_runner, self.__file_manager, target_path=target_path
+            self.__command_runner,
+            self.__crypto_provider,
+            self.__file_manager,
+            target_path=target_path,
         )
         self.__venvs[env_key] = env
         return env
@@ -107,7 +114,7 @@ class PythonManager:
                 f"unable to get pip report for freshly installed package {pip_package.name}"
             )
         return self.__build_pip_installation_model_from_report_element(
-            element_report, configuration=pip_package
+            element_report, configuration=pip_package, add_hash=True
         )
 
     def install_pip_requirements(
@@ -119,7 +126,7 @@ class PythonManager:
             requirements_file=requirements_file,
             requirements_content=requirements_content,
         )
-        return self.__build_installation_models_from_report(report)
+        return self.__build_installation_models_from_report(report, add_hash=True)
 
     @staticmethod
     def fetch_entry_points(
@@ -193,7 +200,9 @@ class PythonManager:
         packages = set(itertools.chain(*envs_packages))
         packages.update(
             (
-                self.__build_pip_installation_model_from_report_element(element)
+                self.__build_pip_installation_model_from_report_element(
+                    element, add_hash=True
+                )
                 for element in self.__pip_inspect(local=True).get("installed", [])
             )
         )
@@ -265,40 +274,69 @@ class PythonManager:
             raise BuilderException("cannot fetch package location from pip report")
         return pathlib.Path(tool_element["metadata_location"])
 
-    @staticmethod
-    def __extract_hash_from_pip_report_element(tool_element):
-        hash_str = (
-            tool_element.get("download_info", {})
-            .get("archive_info", {})
-            .get("hash", None)
-        )
-        if hash_str and "=" in hash_str:
-            hash_str = hash_str.split("=", 1)[1]
-        return hash_str
-
-    @classmethod
     def __build_installation_models_from_report(
-        cls, pip_install_report: typing.Dict[str, typing.Any]
+        self,
+        pip_install_report: typing.Dict[str, typing.Any],
+        add_hash: bool = False,
     ) -> typing.List[PipPackageInstallationModel]:
         return [
-            cls.__build_pip_installation_model_from_report_element(install_elem)
+            self.__build_pip_installation_model_from_report_element(
+                install_elem, add_hash=add_hash
+            )
             for install_elem in pip_install_report.get("install", [])
         ]
 
-    @classmethod
     def __build_pip_installation_model_from_report_element(
-        cls,
+        self,
         install_elem: typing.Dict[str, typing.Any],
         configuration: PipPackageInstallationConfiguration = None,
+        add_hash: bool = False,
     ):
-        name = cls.__extract_name_from_pip_report_element(install_elem)
-        version = cls.__extract_version_from_pip_report_element(install_elem)
-        package_hash = cls.__extract_hash_from_pip_report_element(install_elem)
-        location = cls.__extract_location_from_pip_report_element(install_elem)
+        name = self.__extract_name_from_pip_report_element(install_elem)
+        version = self.__extract_version_from_pip_report_element(install_elem)
+        location = self.__extract_location_from_pip_report_element(install_elem)
+        files_hash = self.__get_pip_package_hash(location) if add_hash else None
         return PipPackageInstallationModel(
             name,
             version,
-            pip_hash=package_hash,
+            pip_hash=files_hash,
             configuration=configuration,
             location=str(location),
         )
+
+    def __get_pip_package_hash(
+        self,
+        location: pathlib.Path,
+    ) -> typing.Optional[str]:
+        files = self.__get_pip_package_installed_files(location)
+        if files is None:
+            return None
+        return self.__crypto_provider.compute_files_hash_sha1(
+            files, add_names=True, names_base=location
+        )
+
+    def __get_pip_package_installed_files(
+        self, location: pathlib.Path, ignore_errors: bool = False
+    ) -> typing.Optional[typing.List[pathlib.Path]]:
+        files = []
+        for file_line in self.__file_manager.read_file_as_text_lines(
+            location.joinpath("RECORD")
+        ):
+            record_path = file_line.split(",")[0]
+            if not record_path:
+                self.__logger.debug(
+                    "pip RECORD at %s points to an empty entry", record_path
+                )
+                continue
+            # Files are installed in the parent dir of where
+            # the dist-info resides
+            path = location.parent.joinpath(record_path)
+            if not path.exists() or path.is_dir():
+                self.__logger.debug(
+                    "pip RECORD at %s points to a non-existing file or a directory %s",
+                    record_path,
+                    path,
+                )
+                continue
+            files.append(path)
+        return files

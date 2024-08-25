@@ -16,7 +16,8 @@ from builder2.exceptions import BuilderException
 from builder2.file_manager import FileManager
 from builder2.models.installation_models import (
     ComponentInstallationModel,
-    PackageInstallationModel, PipPackageInstallationModel,
+    PackageInstallationModel,
+    PipPackageInstallationModel,
 )
 from builder2.models.metadata_models import (
     AptPackageInstallationConfiguration,
@@ -138,7 +139,7 @@ class ToolInstaller(metaclass=abc.ABCMeta):
         )
 
     def _compute_tool_packages(
-            self,
+        self,
     ) -> typing.List[BasePackageInstallationConfiguration]:
         return []
 
@@ -276,7 +277,7 @@ class CMakeSourcesInstaller(ToolSourceInstaller):
         ]
 
     def _compute_tool_packages(
-            self,
+        self,
     ) -> typing.List[BasePackageInstallationConfiguration]:
 
         return [
@@ -387,7 +388,7 @@ class GccSourcesInstaller(ToolSourceInstaller):
         )
 
     def _compute_tool_packages(
-            self,
+        self,
     ) -> typing.List[BasePackageInstallationConfiguration]:
 
         return [
@@ -489,7 +490,7 @@ class ClangSourcesInstaller(ToolSourceInstaller):
         )
 
     def _compute_tool_packages(
-            self,
+        self,
     ) -> typing.List[BasePackageInstallationConfiguration]:
 
         return [
@@ -556,7 +557,7 @@ class CppCheckSourcesInstaller(ToolSourceInstaller):
             super()._compute_tool_version()
 
     def _compute_tool_packages(
-            self,
+        self,
     ) -> typing.List[BasePackageInstallationConfiguration]:
 
         packages = [
@@ -601,7 +602,7 @@ class ValgrindSourcesInstaller(ToolSourceInstaller):
             super()._compute_tool_version()
 
     def _compute_tool_packages(
-            self,
+        self,
     ) -> typing.List[BasePackageInstallationConfiguration]:
         return [
             AptPackageInstallationConfiguration(
@@ -758,8 +759,8 @@ class PipBasedToolInstaller(ToolInstaller):
 
     def _compute_tool_version(self):
         if (
-                self._config.version
-                and self._pip_install_report.version != self._config.version
+            self._config.version
+            and self._pip_install_report.version != self._config.version
         ):
             raise BuilderException(
                 f"Unable to gather the specified package version {self._config.version}."
@@ -777,7 +778,7 @@ class PipBasedToolInstaller(ToolInstaller):
     def _compute_wellknown_paths(self):
         if self._pip_package_path:
             pip_entry_points = (
-                    self._python_manager.fetch_entry_points(self._pip_package_path) or {}
+                self._python_manager.fetch_entry_points(self._pip_package_path) or {}
             )
             self._wellknown_paths.update(pip_entry_points)
 
@@ -808,8 +809,10 @@ class AnsibleInstaller(PipBasedToolInstaller):
         super()._compute_wellknown_paths()
         if self._config.runner and self._config.runner.install:
             pip_entry_points = (
-                    self._python_manager.fetch_entry_points(pathlib.Path(self._runner_install_report.location))
-                    or {}
+                self._python_manager.fetch_entry_points(
+                    pathlib.Path(self._runner_install_report.location)
+                )
+                or {}
             )
             self._wellknown_paths.update(pip_entry_points)
 
@@ -841,8 +844,8 @@ class AnsibleCollectionInstaller(ToolInstaller):
 
     def _compute_tool_version(self):
         if (
-                self._config.version
-                and self._install_report.main_collection.version != self._config.version
+            self._config.version
+            and self._install_report.main_collection.version != self._config.version
         ):
             raise BuilderException(
                 f"Unable to gather the specified collection version {self._config.version}."
@@ -854,8 +857,8 @@ class AnsibleCollectionInstaller(ToolInstaller):
 
     def _compute_tool_path(self) -> pathlib.Path:
         if (
-                self._install_report
-                and self._install_report.main_collection.collection_path
+            self._install_report
+            and self._install_report.main_collection.collection_path
         ):
             collection_path = self._install_report.main_collection.collection_path
             if collection_path.is_dir():

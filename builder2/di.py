@@ -58,6 +58,7 @@ class Container(containers.DeclarativeContainer):
     python_manager = providers.Singleton(
         PythonManager,
         command_runner,
+        cryptographic_provider,
         file_manager,
         target_path=config.target_dir,
     )
