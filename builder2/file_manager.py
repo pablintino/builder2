@@ -14,6 +14,7 @@ import zipfile
 from typing import List
 
 import requests
+import yaml
 
 from builder2.exceptions import BuilderException
 
@@ -176,6 +177,13 @@ class FileManager:
     ) -> typing.Dict[str, typing.Any]:
         with open(path) as file:
             return json.load(file)
+
+    @staticmethod
+    def read_yaml_file(
+        path: typing.Union[str, os.PathLike]
+    ) -> typing.Dict[str, typing.Any]:
+        with open(path) as file:
+            return yaml.safe_load(file)
 
     @staticmethod
     def search_get_files_by_pattern(

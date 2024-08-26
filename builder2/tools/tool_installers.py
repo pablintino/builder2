@@ -1,5 +1,4 @@
 import abc
-import dataclasses
 import logging
 import os
 import pathlib
@@ -16,7 +15,6 @@ from builder2.exceptions import BuilderException
 from builder2.file_manager import FileManager
 from builder2.models.installation_models import (
     ComponentInstallationModel,
-    PackageInstallationModel,
     PipPackageInstallationModel,
 )
 from builder2.models.metadata_models import (
@@ -832,6 +830,7 @@ class AnsibleCollectionInstaller(ToolInstaller):
             self._command_runner,
             self._python_manager,
             self._cryptographic_provider,
+            self._file_manager,
         )
         self._install_report = installer.install(
             url=self._config.url,

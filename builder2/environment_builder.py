@@ -141,7 +141,10 @@ class EnvironmentBuilder:
 
     @classmethod
     def __set_python_vars(
-        cls, installation_summary: InstallationSummary, envs: typing.Dict[str, str], add_python_env: bool
+        cls,
+        installation_summary: InstallationSummary,
+        envs: typing.Dict[str, str],
+        add_python_env: bool,
     ):
         base_path = pathlib.Path(installation_summary.path).parent
         component_envs = {
@@ -154,10 +157,12 @@ class EnvironmentBuilder:
         cls.__set_python_env_vars(envs, base_path.joinpath(".venv"), add_python_env)
 
         for path in component_envs.keys():
-            cls.__set_python_env_vars(envs, path,add_python_env)
+            cls.__set_python_env_vars(envs, path, add_python_env)
 
     @classmethod
-    def __set_python_env_vars(cls, envs:typing.Dict[str, str], path: pathlib.Path, add_python_env:bool):
+    def __set_python_env_vars(
+        cls, envs: typing.Dict[str, str], path: pathlib.Path, add_python_env: bool
+    ):
         if not path.exists():
             return
         site_packages = next(path.rglob("**/site-packages"), None)

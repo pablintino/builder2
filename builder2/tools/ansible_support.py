@@ -2,7 +2,6 @@ import dataclasses
 import json
 import pathlib
 import re
-import sys
 import tarfile
 import typing
 
@@ -10,7 +9,8 @@ import yaml
 
 from builder2 import command_line
 from builder2 import cryptographic_provider
-from builder2 import package_manager
+from builder2 import file_manager
+from builder2.exceptions import BuilderException
 from builder2.models.installation_models import PipPackageInstallationModel
 from builder2.python_manager import PythonManager
 
@@ -40,11 +40,13 @@ class AnsibleCollectionInstaller:
         command_runner: command_line.CommandRunner,
         python_manager: PythonManager,
         crypto_provider: cryptographic_provider.CryptographicProvider,
+        file_manager: file_manager.FileManager,
     ):
         self.__base_path = base_path
         self.__command_runner = command_runner
         self.__python_manager = python_manager
         self.__crypto_provider = crypto_provider
+        self.__file_manager = file_manager
 
     def install(
         self,
@@ -53,7 +55,6 @@ class AnsibleCollectionInstaller:
         install_requirements: bool = False,
         system_wide: bool = False,
         requirements_patterns: typing.List[str] = None,
-        python_bin=None,
     ) -> AnsibleCollectionInstallMainReport:
         self.__python_manager.run_module(
             "ansible.cli.galaxy",
@@ -124,22 +125,30 @@ class AnsibleCollectionInstaller:
     ) -> typing.Tuple[
         AnsibleCollectionInstallReport, typing.List[AnsibleCollectionInstallReport]
     ]:
-        reqs_file = base_dir.joinpath("requirements.yml")
-        if not reqs_file.is_file():
-            # todo
-            raise FileNotFoundError("todo")
-        content = yaml.safe_load(reqs_file.read_text(encoding="utf-8"))
+        requirements_file = base_dir.joinpath("requirements.yml")
+        content = self.__file_manager.read_yaml_file(requirements_file)
         if not content or "collections" not in content:
-            # todo
-            raise Exception("todo")
+            raise BuilderException(
+                f"requirements.yml file in {requirements_file} does not contain 'collections' element"
+            )
         target_collection_data = None
         dependencies = []
-        for collection_data in content["collections"]:
+        collections_list = content["collections"]
+        for coll_idx in range(0, len(collections_list)):
+            collection_data = collections_list[coll_idx]
             tar_name = collection_data.get("name", None)
             if not tar_name:
-                # todo
-                raise Exception("todo")
-            report = self.__parse_collection_tar(base_dir.joinpath(tar_name), patterns)
+                raise BuilderException(
+                    f"collection with index {coll_idx} in {requirements_file} does not contain a 'name' element"
+                )
+            tar_path = base_dir.joinpath(tar_name)
+            if (not tar_path.exists()) or (tar_path.is_dir()):
+                raise BuilderException(
+                    f"tar file {tar_name} in {requirements_file} point to a non-existing tar file"
+                )
+            report = self.__parse_collection_tar(tar_path, patterns)
+            # Assume the first report is the one that represents the collection,
+            # the rest are its dependencies
             if not target_collection_data:
                 target_collection_data = report
             elif report:
@@ -253,7 +262,7 @@ class AnsibleCollectionInstaller:
         return self.__get_tar_member_string_content(tar_file, tar_member)
 
     def __get_collection_path(
-        self, collection_name: str, python_bin=None
+        self, collection_name: str
     ) -> typing.Optional[pathlib.Path]:
         config_params = json.loads(
             self.__python_manager.run_module_check_output(

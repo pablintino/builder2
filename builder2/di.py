@@ -1,6 +1,4 @@
 import dataclasses
-import os.path
-import pathlib
 from typing import Dict
 
 from dependency_injector import containers, providers
