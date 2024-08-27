@@ -46,9 +46,9 @@ ENTRYPOINT ["/opt/builder2/entrypoint"]
 CMD ["/bin/bash"]
 ```
 
-Th entryopint of the container can be now replaced by the builder2 bootstrap command, that way, every container will run on a bootstrapped shell with all the needed environment variables and certificates loaded.
+Th entrypoint of the container can be now replaced by the builder2 bootstrap command, that way, every container will run on a bootstrapped shell with all the needed environment variables and certificates loaded.
 ```bash
 #! /bin/bash
 
-builder2 bootstrap --no-output --certs "$BUILDER_CUSTOM_CERTS" -- "$@"
+builder2 bootstrap --quiet --certs "$BUILDER_CUSTOM_CERTS" -- "$@"
 ```

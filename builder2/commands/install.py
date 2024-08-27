@@ -41,7 +41,7 @@ def __load_toolchain_metadata(path, file_manager) -> ToolchainMetadataConfigurat
 
 
 def __sort_components_stack(
-        components_dependencies_graph, graph_iface, visited, components_stack
+    components_dependencies_graph, graph_iface, visited, components_stack
 ):
     visited.append(graph_iface)
 
@@ -54,7 +54,7 @@ def __sort_components_stack(
 
 
 def __sort_components(
-        component_configs: typing.Dict[str, BaseComponentConfiguration]
+    component_configs: typing.Dict[str, BaseComponentConfiguration]
 ) -> typing.Dict[str, BaseComponentConfiguration]:
     # Prepare the dependency graph
     components_dependencies_graph = {}
@@ -81,14 +81,14 @@ def __sort_components(
 
 
 def __install_components(
-        components: Dict[str, BaseComponentConfiguration],
-        target_dir: str,
-        installation_summary: InstallationSummary,
-        conan_manager: ConanManager,
+    components: Dict[str, BaseComponentConfiguration],
+    target_dir: str,
+    installation_summary: InstallationSummary,
+    conan_manager: ConanManager,
 ):
     for component_key, component_config in __sort_components(components).items():
         with container_instance.tool_installers(
-                type(component_config).__name__, component_key, component_config, target_dir
+            type(component_config).__name__, component_key, component_config, target_dir
         ) as installer:
             installation_model = installer.run_installation()
             conan_manager.add_profiles_to_component(
@@ -101,13 +101,13 @@ def __install_components(
 
 @inject
 def __install(
-        args,
-        file_manager: FileManager = Provide[Container.file_manager],
-        package_manager: PackageManager = Provide[Container.package_manager],
-        conan_manager: ConanManager = Provide[Container.conan_manager],
-        target_dir: str = Provide[Container.config.target_dir],
+    args,
+    file_manager: FileManager = Provide[Container.file_manager],
+    package_manager: PackageManager = Provide[Container.package_manager],
+    conan_manager: ConanManager = Provide[Container.conan_manager],
+    target_dir: str = Provide[Container.config.target_dir],
 ):
-    builder2.loggers.configure("INFO" if args.output else "ERROR")
+    builder2.loggers.configure("INFO" if not args.quiet else "ERROR")
 
     try:
         toolchain_metadata = __load_toolchain_metadata(args.filename, file_manager)
@@ -142,7 +142,7 @@ def __install(
 
 def register(subparsers):
     command_parser = subparsers.add_parser("install")
-    command_parser.set_defaults(func=__install, output=True)
+    command_parser.set_defaults(func=__install, quiet=False)
 
     command_parser.add_argument(
         "-f",
@@ -159,9 +159,9 @@ def register(subparsers):
         required=True,
     )
     command_parser.add_argument(
-        "--no-output",
-        dest="output",
-        action="store_false",
+        "--quiet",
+        dest="quiet",
+        action="store_true",
         help="Disable all no error logs",
     )
     command_parser.add_argument(

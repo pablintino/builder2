@@ -47,7 +47,7 @@ class EnvironmentBuilder:
     def __set_paths(cls, installation_summary, envs: typing.Dict[str, str]):
         for component_installation in installation_summary.get_components().values():
             for paths in component_installation.path_dirs:
-                cls.__insert_into_list_var(envs, "PATH", paths)
+                cls.__insert_into_list_var(envs, constants.ENV_VAR_PATH, paths)
 
     @classmethod
     def __build_component_generated_variables(
@@ -144,7 +144,6 @@ class EnvironmentBuilder:
         cls,
         installation_summary: InstallationSummary,
         envs: typing.Dict[str, str],
-        add_python_env: bool,
     ):
         base_path = pathlib.Path(installation_summary.path).parent
         component_envs = {
@@ -154,23 +153,22 @@ class EnvironmentBuilder:
         }
 
         # Add the global venv
-        cls.__set_python_env_vars(envs, base_path.joinpath(".venv"), add_python_env)
+        cls.__set_python_env_vars(envs, base_path.joinpath(".venv"))
 
         for path in component_envs.keys():
-            cls.__set_python_env_vars(envs, path, add_python_env)
+            cls.__set_python_env_vars(envs, path)
 
     @classmethod
-    def __set_python_env_vars(
-        cls, envs: typing.Dict[str, str], path: pathlib.Path, add_python_env: bool
-    ):
+    def __set_python_env_vars(cls, envs: typing.Dict[str, str], path: pathlib.Path):
         if not path.exists():
             return
         site_packages = next(path.rglob("**/site-packages"), None)
         bins_path = path.joinpath("bin")
         if site_packages and bins_path.exists():
-            cls.__insert_into_list_var(envs, "PATH", str(bins_path))
-            if add_python_env:
-                cls.__insert_into_list_var(envs, "PYTHONPATH", str(site_packages))
+            cls.__insert_into_list_var(envs, constants.ENV_VAR_PATH, str(bins_path))
+            cls.__insert_into_list_var(
+                envs, constants.ENV_VAR_PYTHONPATH, str(site_packages)
+            )
 
     @classmethod
     def build_environment_variables(
@@ -178,7 +176,6 @@ class EnvironmentBuilder:
         installation_summary: InstallationSummary,
         generate_variables: bool,
         append: bool = True,
-        add_python_env: bool = False,
     ):
         variables = os.environ.copy() if append else {}
         for installation in installation_summary.get_components().values():
@@ -187,7 +184,7 @@ class EnvironmentBuilder:
 
         # Replace PATH with its value plus the paths in the summary
         cls.__set_paths(installation_summary, variables)
-        cls.__set_python_vars(installation_summary, variables, add_python_env)
+        cls.__set_python_vars(installation_summary, variables)
 
         # Add generated environment variables only if desired
         if generate_variables:

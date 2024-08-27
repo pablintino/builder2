@@ -9,6 +9,7 @@ import configargparse
 from dependency_injector.wiring import inject, Provide
 
 import builder2.loggers
+from builder2 import constants
 from builder2.certificate_manager import CertificateManager
 from builder2.command_line import CommandRunner
 from builder2.commands import command_commons
@@ -84,7 +85,7 @@ def __bootstrap(
     signal.signal(signal.SIGINT, __signal_handler)
 
     try:
-        builder2.loggers.configure("INFO" if args.output else "ERROR")
+        builder2.loggers.configure("INFO" if not args.quiet else "ERROR")
 
         installation_summary = command_commons.get_installation_summary_from_args(
             args, file_manager
@@ -103,9 +104,7 @@ def __bootstrap(
 
         bootstrap_cmd = __prepare_command(args)
         env_vars = environment_builder.build_environment_variables(
-            installation_summary,
-            args.generate_vars,
-            add_python_env=args.generate_python_vars,
+            installation_summary, args.generate_vars
         )
         command_runner.exec_command(bootstrap_cmd, env_vars)
     except OSError as err:
@@ -116,25 +115,20 @@ def __bootstrap(
 
 def register(subparsers):
     command_parser = subparsers.add_parser("bootstrap")
-    command_parser.set_defaults(func=__bootstrap, output=True, generate_vars=False)
+    command_parser.set_defaults(func=__bootstrap, quiet=True, generate_vars=False)
     command_commons.register_installation_summary_arg_option(command_parser)
     command_commons.register_certificates_arg_option(command_parser)
     command_parser.add_argument(
-        "--no-output",
-        dest="output",
-        action="store_false",
+        "--quiet",
+        dest="quiet",
+        action="store_true",
         help="Disable all no error logs",
     )
     command_parser.add_argument(
         "--generate-vars",
         dest="generate_vars",
         action="store_true",
+        env_var=constants.ENV_VAR_GENERATE_VARS,
         help="Enable component generated environment variables",
-    )
-    command_parser.add_argument(
-        "--generate-python-vars",
-        dest="generate_python_vars",
-        action="store_true",
-        help="Enable python paths tweaking for builder2 venvs",
     )
     command_parser.add_argument("remainder", nargs=configargparse.REMAINDER)
