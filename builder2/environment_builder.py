@@ -197,8 +197,8 @@ class EnvironmentBuilder:
 
         # If the builder installation path env var is not present add it
         # to simplify other commands after bootstrapped
-        if constants.INSTALLATION_SUMMARY_ENV_VAR not in variables:
-            variables[constants.INSTALLATION_SUMMARY_ENV_VAR] = (
+        if constants.ENV_VAR_INSTALLATION_SUMMARY not in variables:
+            variables[constants.ENV_VAR_INSTALLATION_SUMMARY] = (
                 installation_summary.path
             )
 

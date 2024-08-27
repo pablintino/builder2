@@ -27,7 +27,7 @@ def register_installation_summary_arg_option(command_parser):
         "--installation-summary",
         dest="summary_path",
         help="Path to the installation summary descriptor file or installation directory",
-        env_var=constants.INSTALLATION_SUMMARY_ENV_VAR,
+        env_var=constants.ENV_VAR_INSTALLATION_SUMMARY,
         required=True,
     )
 
@@ -37,7 +37,7 @@ def register_certificates_arg_option(command_parser, required=False):
         "--certs",
         dest="certs_dir",
         help="Path to the directory with the certificates to load",
-        env_var=constants.CERTIFICATES_ENV_VAR,
+        env_var=constants.ENV_VAR_CERTIFICATES,
         required=required,
     )
 
