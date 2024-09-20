@@ -33,6 +33,7 @@ class AnsibleCollectionInstallMainReport:
 
 class AnsibleCollectionInstaller:
     __DEFAULT_REQUIREMENTS_REGEX = "requirements\.txt$"
+    __SYSTEM_COLLECTIONS_PATH = "/usr/share/ansible/collections"
 
     def __init__(
         self,
@@ -69,7 +70,7 @@ class AnsibleCollectionInstaller:
             downloaded_base_dir, requirements_patterns
         )
         path_opts = (
-            ["--collections-path", "/usr/share/ansible/collections"]
+            ["--collections-path", self.__SYSTEM_COLLECTIONS_PATH]
             if system_wide
             else []
         )
@@ -274,24 +275,24 @@ class AnsibleCollectionInstaller:
         )
         collection_paths = next(
             (
-                param.get("value", None)
+                param["value"]
                 for param in config_params
-                if param.get("name", None) == "COLLECTIONS_PATHS"
+                if (param.get("name", None) == "COLLECTIONS_PATHS") and "value" in param
             ),
-            None,
+            [],
         )
 
-        if collection_paths:
-            collection_paths = list(collection_paths)
-            for path in list(collection_paths):
-                collection_paths.append(
-                    str(pathlib.Path(path).joinpath("ansible_collections"))
-                )
-        for candidate_path in collection_paths or []:
-            name_split = collection_name.split(".")
-            name = name_split[1] if len(name_split) > 1 else None
-            namespace = name_split[0]
-            computed_path = pathlib.Path(candidate_path).joinpath(
+        name_split = collection_name.split(".")
+        name = name_split[1] if len(name_split) > 1 else ""
+        namespace = name_split[0]
+        for candidate_path in collection_paths:
+            # By ansible docs, the collections path is always suffixed by "ansible_collections"
+            # if the deepest tree element is not named "ansible_collections".
+            base_path = pathlib.Path(candidate_path)
+            if base_path.name != "ansible_collections":
+                base_path = base_path.joinpath("ansible_collections")
+
+            computed_path = base_path.joinpath(
                 namespace,
                 name,
             )

@@ -1,14 +1,15 @@
-DOCKER_IMAGE_TAG ?= builder2-dev:latest
+DOCKER_IMAGE_TAG ?= builder2:latest
 
 ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
 .PHONY: setup_env
 setup_env:
-ifeq (,$(wildcard ${ROOT_DIR}/.venv/bin/python3))
+ifeq (,$(wildcard ${ROOT_DIR}/.venv/bin/python))
 	$(eval $(call vars,$@))
 	rm -rf ${ROOT_DIR}/.venv
-	python3 -m venv ${ROOT_DIR}/.venv
-	${ROOT_DIR}/.venv/bin/pip3 install -e .[dev]
+	python -m venv ${ROOT_DIR}/.venv
+	pip install build
+	${ROOT_DIR}/.venv/bin/pip install -e .[dev]
 endif
 
 .PHONY: clean
