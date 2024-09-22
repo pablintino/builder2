@@ -64,10 +64,22 @@ class FileManager:
 
     def extract_file(self, file, target):
         self._logger.info("Start extraction of %s", file)
-        with tarfile.open(fileobj=self.ProgressFileObject(file, self._logger)) as tar:
-            tar.extractall(target)
-            extract_path = os.path.join(target, os.path.commonprefix(tar.getnames()))
+        if zipfile.is_zipfile(file):
+            with zipfile.ZipFile(file, "r") as zip_ref:
+                # to mimic a tar extract inside a folder to avoid
+                # the zip to be part of the extracted content
+                extract_path = os.path.join(target, f"{os.path.basename(file)}-content")
+                zip_ref.extractall(extract_path)
+        else:
+            with tarfile.open(
+                fileobj=self.ProgressFileObject(file, self._logger)
+            ) as tar:
+                tar.extractall(target)
+                extract_path = os.path.join(
+                    target, os.path.commonprefix(tar.getnames())
+                )
         self._logger.info("Finished extraction of %s", file)
+        self._logger.debug("Extraction of %s returns %s", file, extract_path)
         return extract_path
 
     @staticmethod

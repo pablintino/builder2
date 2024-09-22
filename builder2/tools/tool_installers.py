@@ -3,6 +3,7 @@ import logging
 import os
 import pathlib
 import re
+import stat
 import sys
 import tempfile
 import typing
@@ -41,10 +42,14 @@ class ToolInstaller(metaclass=abc.ABCMeta):
         self._wellknown_paths = {}
         self._component_env_vars = {}
         self._path_directories = []
-        self._executables_dir = self._config.executables_dir or kwargs.get(
-            "executables_dir", "bin"
+        self._executables_dir = (
+            self._config.executables_dir
+            if self._config.executables_dir is not None
+            else kwargs.get("executables_dir", "bin")
         )
-        self._known_executables = kwargs.get("known_executables", [])
+        self._known_executables = self._config.known_executables or kwargs.get(
+            "known_executables", []
+        )
 
         self._file_manager: FileManager = kwargs.get("file_manager")
         self._cryptographic_provider: CryptographicProvider = kwargs.get(
@@ -114,21 +119,21 @@ class ToolInstaller(metaclass=abc.ABCMeta):
 
     def _acquire_sources(self):
         parsed_url = urlparse(self._config.url)
-        sources_tar_path = os.path.join(
+        sources_archive_path = os.path.join(
             self._temp_dir.name, os.path.basename(parsed_url.path)
         )
-        self._file_manager.download_file(self._config.url, sources_tar_path)
+        self._file_manager.download_file(self._config.url, sources_archive_path)
 
         if self._config.expected_hash:
             self._cryptographic_provider.validate_file_hash(
-                sources_tar_path, self._config.expected_hash
+                sources_archive_path, self._config.expected_hash
             )
 
         self._sources_dir = self._file_manager.extract_file(
-            sources_tar_path, self._temp_dir.name
+            sources_archive_path, self._temp_dir.name
         )
         self._package_hash = self._cryptographic_provider.compute_file_sha1(
-            sources_tar_path
+            sources_archive_path
         )
 
     def _acquire_packages(self):
@@ -148,7 +153,14 @@ class ToolInstaller(metaclass=abc.ABCMeta):
                 .joinpath(self._executables_dir)
                 .joinpath(executable)
             )
-            if self._file_manager.file_is_executable(executable_path):
+            if executable_path.is_file():
+                if not self._file_manager.file_is_executable(executable_path):
+                    executable_path.chmod(
+                        executable_path.stat().st_mode
+                        | stat.S_IEXEC
+                        | stat.S_IXGRP
+                        | stat.S_IXOTH
+                    )
                 self._wellknown_paths[executable] = str(executable_path.absolute())
 
     def _compute_component_env_vars(self):
