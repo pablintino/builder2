@@ -6,8 +6,8 @@ from typing import List, Dict
 
 from datetime import datetime
 import marshmallow.exceptions
+import builder2.file_manager
 from builder2.exceptions import BuilderValidationException, BuilderException
-from builder2.file_manager import FileManager
 from builder2.models.installation_models import (
     ComponentInstallationModel,
     InstallationSummarySchema,
@@ -23,11 +23,9 @@ class InstallationSummary:
 
     def __init__(
         self,
-        file_manager: FileManager,
         summary: InstallationSummaryModel = None,
         path=None,
     ):
-        self._file_manager = file_manager
         self.__components = {}
         self.__packages = []
         self.__environment_vars = {}
@@ -40,7 +38,7 @@ class InstallationSummary:
             self.installed_at = summary.installed_at
 
     @classmethod
-    def from_path(cls, path: str, file_manager: FileManager) -> InstallationSummary:
+    def from_path(cls, path: str) -> InstallationSummary:
         cls.__logger.info("Loading installation summary from %s", path)
         summary_path = (
             path
@@ -49,9 +47,8 @@ class InstallationSummary:
         )
         try:
             return cls(
-                file_manager,
                 summary=InstallationSummarySchema().load(
-                    data=file_manager.read_json_file(summary_path)
+                    data=builder2.file_manager.read_json_file(summary_path)
                 ),
                 path=summary_path,
             )
@@ -64,7 +61,7 @@ class InstallationSummary:
     def save(self, target_dir: str):
         file_name = os.path.join(target_dir, self.__SUMMARY_FILE_NAME)
         self.__logger.info("Saving installation summary to %s", file_name)
-        self._file_manager.create_file_tree(target_dir)
+        os.makedirs(target_dir, exist_ok=True)
 
         inventory = InstallationSummarySchema().dump(
             InstallationSummaryModel(
@@ -78,7 +75,7 @@ class InstallationSummary:
             )
         )
 
-        self._file_manager.write_as_json(file_name, inventory)
+        builder2.file_manager.write_as_json(file_name, inventory)
 
     def add_component(self, tool_key: str, tool_summary: ComponentInstallationModel):
         self.__components[tool_key] = tool_summary

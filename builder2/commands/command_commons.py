@@ -4,17 +4,14 @@ import sys
 
 from builder2 import constants
 from builder2.exceptions import BuilderException, BuilderValidationException
-from builder2.file_manager import FileManager
 from builder2.installation_summary import InstallationSummary
 
 __logger = logging.getLogger(__name__)
 
 
-def get_installation_summary_from_args(
-    args, file_manager: FileManager
-) -> InstallationSummary:
+def get_installation_summary_from_args(args) -> InstallationSummary:
     try:
-        return InstallationSummary.from_path(args.summary_path, file_manager)
+        return InstallationSummary.from_path(args.summary_path)
     except FileNotFoundError as err:
         raise BuilderException(
             f"Installation summary '{args.summary_path}' not found", exit_code=2

@@ -7,10 +7,8 @@ from dependency_injector.wiring import inject, Provide
 import builder2.loggers
 from builder2 import constants
 from builder2.commands import command_commons
-from builder2.di import Container
-from builder2.environment_builder import EnvironmentBuilder
+import builder2.environment_builder
 from builder2.exceptions import BuilderException
-from builder2.file_manager import FileManager
 
 __logger = logging.getLogger(__name__)
 
@@ -27,16 +25,12 @@ def __generate_vars_content(variables: Dict[str, str]):
 @inject
 def __source(
     args,
-    file_manager: FileManager = Provide[Container.file_manager],
-    environment_builder: EnvironmentBuilder = Provide[Container.environment_builder],
 ):
     try:
         builder2.loggers.disable()
 
-        installation_summary = command_commons.get_installation_summary_from_args(
-            args, file_manager
-        )
-        env_vars = environment_builder.build_environment_variables(
+        installation_summary = command_commons.get_installation_summary_from_args(args)
+        env_vars = builder2.environment_builder.build_environment_variables(
             installation_summary, args.generate_vars, append=False
         )
         source_content = __generate_vars_content(env_vars)

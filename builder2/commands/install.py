@@ -7,9 +7,10 @@ from typing import Dict
 import marshmallow.exceptions
 from dependency_injector.wiring import inject, Provide
 
+import builder2.conan_manager
 import builder2.loggers
 import builder2.environment_builder
-from builder2.file_manager import FileManager
+import builder2.file_manager
 from builder2.di import Container, container_instance
 from builder2.package_manager import PackageManager
 from builder2.commands import command_commons
@@ -20,15 +21,15 @@ from builder2.models.metadata_models import (
     ToolchainMetadataConfiguration,
     BaseComponentConfiguration,
 )
-from builder2.conan_manager import ConanManager
+
 
 __logger = logging.getLogger(__name__)
 
 
-def __load_toolchain_metadata(path, file_manager) -> ToolchainMetadataConfiguration:
+def __load_toolchain_metadata(path) -> ToolchainMetadataConfiguration:
     try:
         return ToolchainMetadataConfigurationSchema().load(
-            data=file_manager.read_json_file(pathlib.Path(path).absolute())
+            data=builder2.file_manager.read_json_file(pathlib.Path(path).absolute())
         )
     except FileNotFoundError as err:
         raise BuilderException(
@@ -84,14 +85,13 @@ def __install_components(
     components: Dict[str, BaseComponentConfiguration],
     target_dir: str,
     installation_summary: InstallationSummary,
-    conan_manager: ConanManager,
 ):
     for component_key, component_config in __sort_components(components).items():
         with container_instance.tool_installers(
             type(component_config).__name__, component_key, component_config, target_dir
         ) as installer:
             installation_model = installer.run_installation()
-            conan_manager.add_profiles_to_component(
+            builder2.conan_manager.add_profiles_to_component(
                 component_key,
                 installation_model,
                 target_dir,
@@ -102,16 +102,14 @@ def __install_components(
 @inject
 def __install(
     args,
-    file_manager: FileManager = Provide[Container.file_manager],
     package_manager: PackageManager = Provide[Container.package_manager],
-    conan_manager: ConanManager = Provide[Container.conan_manager],
     target_dir: str = Provide[Container.config.target_dir],
 ):
     builder2.loggers.configure("INFO" if not args.quiet else "ERROR")
 
     try:
-        toolchain_metadata = __load_toolchain_metadata(args.filename, file_manager)
-        installation_summary = InstallationSummary(file_manager)
+        toolchain_metadata = __load_toolchain_metadata(args.filename)
+        installation_summary = InstallationSummary()
 
         # Install globally declared packages
         package_manager.install_packages(toolchain_metadata.packages)
@@ -120,7 +118,6 @@ def __install(
             toolchain_metadata.components,
             target_dir,
             installation_summary,
-            conan_manager,
         )
 
         installation_summary.add_environment_variables(

@@ -7,9 +7,8 @@ import typing
 
 import yaml
 
-from builder2 import command_line
-from builder2 import cryptographic_provider
-from builder2 import file_manager
+import builder2.file_manager
+import builder2.cryptographic_provider
 from builder2.exceptions import BuilderException
 from builder2.models.installation_models import PipPackageInstallationModel
 from builder2.python_manager import PythonManager
@@ -38,16 +37,10 @@ class AnsibleCollectionInstaller:
     def __init__(
         self,
         base_path: pathlib.Path,
-        command_runner: command_line.CommandRunner,
         python_manager: PythonManager,
-        crypto_provider: cryptographic_provider.CryptographicProvider,
-        file_manager: file_manager.FileManager,
     ):
         self.__base_path = base_path
-        self.__command_runner = command_runner
         self.__python_manager = python_manager
-        self.__crypto_provider = crypto_provider
-        self.__file_manager = file_manager
 
     def install(
         self,
@@ -127,7 +120,7 @@ class AnsibleCollectionInstaller:
         AnsibleCollectionInstallReport, typing.List[AnsibleCollectionInstallReport]
     ]:
         requirements_file = base_dir.joinpath("requirements.yml")
-        content = self.__file_manager.read_yaml_file(requirements_file)
+        content = builder2.file_manager.read_yaml_file(requirements_file)
         if not content or "collections" not in content:
             raise BuilderException(
                 f"requirements.yml file in {requirements_file} does not contain 'collections' element"
@@ -176,7 +169,7 @@ class AnsibleCollectionInstaller:
                 )
                 if reqs:
                     requirements.append(reqs)
-        tar_hash = self.__crypto_provider.compute_file_sha1(tar_path)
+        tar_hash = builder2.cryptographic_provider.compute_file_sha1(tar_path)
         return AnsibleCollectionInstallReport(
             name, version, requirements, tar_hash, pip_reports=[]
         )

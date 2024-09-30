@@ -6,17 +6,15 @@ import subprocess
 import sys
 
 import configargparse
-from dependency_injector.wiring import inject, Provide
+from dependency_injector.wiring import inject
 
+import builder2.certificate_manager
+import builder2.command_line
+import builder2.environment_builder
 import builder2.loggers
 from builder2 import constants
-from builder2.certificate_manager import CertificateManager
-from builder2.command_line import CommandRunner
 from builder2.commands import command_commons
-from builder2.di import Container
-from builder2.environment_builder import EnvironmentBuilder
 from builder2.exceptions import BuilderException
-from builder2.file_manager import FileManager
 
 __logger = logging.getLogger(__name__)
 
@@ -76,10 +74,6 @@ def __signal_handler(_, __):
 @inject
 def __bootstrap(
     args,
-    file_manager: FileManager = Provide[Container.file_manager],
-    certificate_manager: CertificateManager = Provide[Container.certificate_manager],
-    command_runner: CommandRunner = Provide[Container.command_runner],
-    environment_builder: EnvironmentBuilder = Provide[Container.environment_builder],
 ):
     # Listen for process SIGNITs. If listener is not added SIGINT inside a container shell hangs the shell forever
     signal.signal(signal.SIGINT, __signal_handler)
@@ -87,14 +81,12 @@ def __bootstrap(
     try:
         builder2.loggers.configure("INFO" if not args.quiet else "ERROR")
 
-        installation_summary = command_commons.get_installation_summary_from_args(
-            args, file_manager
-        )
+        installation_summary = command_commons.get_installation_summary_from_args(args)
 
         # If cert path is given and exists go install them
         # (if path doesn't exist an exception is raised internally)
         if args.certs_dir and os.path.exists(args.certs_dir):
-            certificate_manager.install_all_certificates(
+            builder2.certificate_manager.install_all_certificates(
                 installation_summary, args.certs_dir
             )
         elif args.certs_dir:
@@ -103,10 +95,10 @@ def __bootstrap(
             )
 
         bootstrap_cmd = __prepare_command(args)
-        env_vars = environment_builder.build_environment_variables(
+        env_vars = builder2.environment_builder.build_environment_variables(
             installation_summary, args.generate_vars
         )
-        command_runner.exec_command(bootstrap_cmd, env_vars)
+        builder2.command_line.exec_command(bootstrap_cmd, env_vars)
     except OSError as err:
         sys.exit(err.errno)
     except BuilderException as err:

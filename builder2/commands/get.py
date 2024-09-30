@@ -8,7 +8,6 @@ from builder2.commands import command_commons
 from builder2.conan_manager import CONAN_PROFILE_TYPES
 from builder2.di import Container
 from builder2.exceptions import BuilderException
-from builder2.file_manager import FileManager
 from builder2.models.installation_models import ComponentInstallationModel
 
 __logger = logging.getLogger(__name__)
@@ -69,15 +68,11 @@ def __triplet_query(args, component: ComponentInstallationModel):
 @inject
 def __get_variable(
     args,
-    file_manager: FileManager = Provide[Container.file_manager],
 ):
     try:
         builder2.loggers.configure("INFO" if not args.quiet else "ERROR")
 
-        installation_summary = command_commons.get_installation_summary_from_args(
-            args, file_manager
-        )
-
+        installation_summary = command_commons.get_installation_summary_from_args(args)
         component = installation_summary.get_component(
             args.component,
             version=args.version,

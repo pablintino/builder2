@@ -2,7 +2,7 @@ import dataclasses
 import logging
 import typing
 
-from builder2.command_line import CommandRunner
+import builder2.command_line
 from builder2.exceptions import BuilderException
 from builder2.models.installation_models import (
     PackageInstallationModel,
@@ -18,8 +18,7 @@ from builder2.python_manager import PythonManager
 
 
 class PackageManager:
-    def __init__(self, command_runner: CommandRunner, python_manager: PythonManager):
-        self._command_runner = command_runner
+    def __init__(self, python_manager: PythonManager):
         self._python_manager = python_manager
         self._logger = logging.getLogger(self.__class__.__name__)
         self._apt_update_ran = False
@@ -36,12 +35,12 @@ class PackageManager:
     def __run_post_commands(self, commands):
         for command in commands or []:
             command_list = command.split(" ")
-            self._command_runner.run_process(command_list)
+            builder2.command_line.run_process(command_list)
 
     def __update_apt_sources(self):
         self._logger.info("Running package cache update")
         if not self._apt_update_ran:
-            self._command_runner.run_process(["apt-get", "update"])
+            builder2.command_line.run_process(["apt-get", "update"])
             self._apt_update_ran = True
 
     def __install_apt_package(
@@ -52,7 +51,7 @@ class PackageManager:
         package_to_install = [
             f"{package.name}={package.version}" if package.version else package.name
         ]
-        self._command_runner.run_process(
+        builder2.command_line.run_process(
             ["apt-get", "install", "-y"] + package_to_install
         )
 
@@ -67,13 +66,13 @@ class PackageManager:
             and package.build_transient
             for package in self.__uninstalled_packages.values()
         ):
-            self._command_runner.run_process(["apt-get", "autoremove", "-y"])
+            builder2.command_line.run_process(["apt-get", "autoremove", "-y"])
 
     def __uninstall_apt_package(self, package: AptPackageInstallationConfiguration):
         package_to_uninstall = [
             f"{package.name}={package.version}" if package.version else package.name
         ]
-        self._command_runner.run_process(
+        builder2.command_line.run_process(
             ["apt-get", "remove", "-y", "--purge"] + package_to_uninstall
         )
 

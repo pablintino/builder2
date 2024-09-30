@@ -10,9 +10,9 @@ import tempfile
 import typing
 from os import PathLike
 
-from builder2 import command_line
-from builder2 import cryptographic_provider
-from builder2 import file_manager
+import builder2.command_line
+import builder2.file_manager
+import builder2.cryptographic_provider
 from builder2.exceptions import BuilderException
 from builder2.models.installation_models import PipPackageInstallationModel
 from builder2.models.metadata_models import PipPackageInstallationConfiguration
@@ -21,14 +21,8 @@ from builder2.models.metadata_models import PipPackageInstallationConfiguration
 class PythonManager:
     def __init__(
         self,
-        command_runner: command_line.CommandRunner,
-        crypto_provider: cryptographic_provider.CryptographicProvider,
-        file_manager: file_manager.FileManager,
         target_path: typing.Union[str, PathLike[str]],
     ):
-        self.__command_runner = command_runner
-        self.__crypto_provider = crypto_provider
-        self.__file_manager = file_manager
         self.__venv_path = pathlib.Path(target_path).resolve().joinpath(".venv")
         self.__logger = logging.getLogger()
         self.__venvs: typing.Dict[str, "PythonManager"] = {}
@@ -42,7 +36,7 @@ class PythonManager:
         self.__logger.debug(
             "Creating venv in %s",
         )
-        self.__command_runner.run_process(
+        builder2.command_line.run_process(
             [sys.executable, "-m", "venv", str(self.__venv_path)]
         )
         self.run_module("pip", "install", "--upgrade", "pip")
@@ -70,22 +64,19 @@ class PythonManager:
             return self
 
         env = PythonManager(
-            self.__command_runner,
-            self.__crypto_provider,
-            self.__file_manager,
             target_path=target_path,
         )
         self.__venvs[env_key] = env
         return env
 
     def run_module(self, module: str, *args, cwd: str = None):
-        self.__command_runner.run_process(
+        builder2.command_line.run_process(
             [str(self.__get_binary()), "-m", module] + list(args),
             cwd=cwd,
         )
 
     def run_module_check_output(self, module: str, *args, cwd: str = None) -> str:
-        return self.__command_runner.check_output(
+        return builder2.command_line.check_output(
             [str(self.__get_binary()), "-m", module] + list(args),
             cwd=cwd,
         )
@@ -222,7 +213,7 @@ class PythonManager:
             if requirements_file:
                 shutil.copy2(requirements_file, temp_reqs_path)
             elif requirements_content:
-                self.__file_manager.write_text_file(
+                builder2.file_manager.write_text_file(
                     temp_reqs_path, requirements_content
                 )
             self.run_module(
@@ -311,7 +302,7 @@ class PythonManager:
         files = self.__get_pip_package_installed_files(location)
         if files is None:
             return None
-        return self.__crypto_provider.compute_files_hash_sha1(
+        return builder2.cryptographic_provider.compute_files_hash_sha1(
             files, add_names=True, names_base=location
         )
 
@@ -319,7 +310,7 @@ class PythonManager:
         self, location: pathlib.Path, ignore_errors: bool = False
     ) -> typing.Optional[typing.List[pathlib.Path]]:
         files = []
-        for file_line in self.__file_manager.read_file_as_text_lines(
+        for file_line in builder2.file_manager.read_file_as_text_lines(
             location.joinpath("RECORD")
         ):
             record_path = file_line.split(",")[0]

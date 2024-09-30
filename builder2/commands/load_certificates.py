@@ -4,8 +4,7 @@ from dependency_injector.wiring import inject, Provide
 
 import builder2.loggers
 from builder2.di import Container
-from builder2.file_manager import FileManager
-from builder2.certificate_manager import CertificateManager
+import builder2.certificate_manager
 from builder2.commands import command_commons
 from builder2.exceptions import BuilderException
 
@@ -15,16 +14,12 @@ __logger = logging.getLogger(__name__)
 @inject
 def __load_certificates(
     args,
-    file_manager: FileManager = Provide[Container.file_manager],
-    certificate_manager: CertificateManager = Provide[Container.certificate_manager],
 ):
     try:
         builder2.loggers.configure("INFO" if not args.quiet else "ERROR")
 
-        installation_summary = command_commons.get_installation_summary_from_args(
-            args, file_manager
-        )
-        certificate_manager.install_all_certificates(
+        installation_summary = command_commons.get_installation_summary_from_args(args)
+        builder2.certificate_manager.install_all_certificates(
             installation_summary, args.certs_dir
         )
 
