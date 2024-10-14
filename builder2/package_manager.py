@@ -3,6 +3,7 @@ import logging
 import typing
 
 import builder2.command_line
+import builder2.environment_builder
 from builder2.exceptions import BuilderException
 from builder2.models.installation_models import (
     PackageInstallationModel,
@@ -26,16 +27,29 @@ class PackageManager:
         self.__uninstalled_packages = {}
 
     def install_pip_package(
-        self, package: PipPackageInstallationConfiguration
+        self,
+        package: PipPackageInstallationConfiguration,
+        python_manager: PythonManager = None,
     ) -> PipPackageInstallationModel:
         installation_model = self._python_manager.install_pip_package(package)
-        self.__run_post_commands(package.post_installation)
+        self.__run_post_commands(
+            package.post_installation,
+            python_manager=python_manager or self._python_manager,
+        )
         return installation_model
 
-    def __run_post_commands(self, commands):
+    @staticmethod
+    def __run_post_commands(commands, python_manager: PythonManager = None):
         for command in commands or []:
             command_list = command.split(" ")
-            builder2.command_line.run_process(command_list)
+            env_vars = (
+                builder2.environment_builder.build_python_env_vars(
+                    python_manager.env_path
+                )
+                if python_manager
+                else None
+            )
+            builder2.command_line.run_process(command_list, env=env_vars)
 
     def __update_apt_sources(self):
         self._logger.info("Running package cache update")
@@ -44,7 +58,9 @@ class PackageManager:
             self._apt_update_ran = True
 
     def __install_apt_package(
-        self, package: AptPackageInstallationConfiguration
+        self,
+        package: AptPackageInstallationConfiguration,
+        python_manager: PythonManager = None,
     ) -> PackageInstallationModel:
         self.__update_apt_sources()
 
@@ -55,7 +71,9 @@ class PackageManager:
             ["apt-get", "install", "-y"] + package_to_install
         )
 
-        self.__run_post_commands(package.post_installation)
+        self.__run_post_commands(
+            package.post_installation, python_manager=python_manager
+        )
         return AptPackageInstallationModel(
             package.name, package.version, configuration=package
         )
@@ -84,7 +102,7 @@ class PackageManager:
     def __build_package_key(cls, package: BasePackageInstallationConfiguration):
         return type(package), package.name, package.version
 
-    def install_packages(self, packages):
+    def install_packages(self, packages, python_manager: PythonManager = None):
         for package in packages:
             key = self.__build_package_key(package)
             # Check if transient and skip as is already installed packages
@@ -103,9 +121,13 @@ class PackageManager:
                 continue
 
             if isinstance(package, PipPackageInstallationConfiguration):
-                package_install = self.install_pip_package(package)
+                package_install = self.install_pip_package(
+                    package, python_manager=python_manager
+                )
             elif isinstance(package, AptPackageInstallationConfiguration):
-                package_install = self.__install_apt_package(package)
+                package_install = self.__install_apt_package(
+                    package, python_manager=python_manager
+                )
             else:
                 raise BuilderException(
                     f"unsupported package type {type(package).__name__}"

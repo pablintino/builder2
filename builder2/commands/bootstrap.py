@@ -6,7 +6,6 @@ import subprocess
 import sys
 
 import configargparse
-from dependency_injector.wiring import inject
 
 import builder2.certificate_manager
 import builder2.command_line
@@ -71,7 +70,6 @@ def __signal_handler(_, __):
     sys.exit(130)
 
 
-@inject
 def __bootstrap(
     args,
 ):

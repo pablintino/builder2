@@ -1,13 +1,10 @@
 import logging
 import os
 
-from dependency_injector.wiring import inject, Provide
-
 import builder2.loggers
-from builder2.commands import command_commons
-from builder2.conan_manager import CONAN_PROFILE_TYPES
-from builder2.di import Container
-from builder2.exceptions import BuilderException
+import builder2.commands.command_commons
+import builder2.conan_manager
+import builder2.exceptions
 from builder2.models.installation_models import ComponentInstallationModel
 
 __logger = logging.getLogger(__name__)
@@ -65,14 +62,15 @@ def __triplet_query(args, component: ComponentInstallationModel):
     )
 
 
-@inject
 def __get_variable(
     args,
 ):
     try:
         builder2.loggers.configure("INFO" if not args.quiet else "ERROR")
 
-        installation_summary = command_commons.get_installation_summary_from_args(args)
+        installation_summary = (
+            builder2.commands.command_commons.get_installation_summary_from_args(args)
+        )
         component = installation_summary.get_component(
             args.component,
             version=args.version,
@@ -85,13 +83,15 @@ def __get_variable(
         else:
             __logger.info("Component %s not found", args.component)
 
-    except BuilderException as err:
-        command_commons.manage_builder_exceptions(err)
+    except builder2.exceptions.BuilderException as err:
+        builder2.commands.command_commons.manage_builder_exceptions(err)
 
 
 def __register_common_command_options(command_parser):
     command_parser.add_argument("component", help="The name of the component to query")
-    command_commons.register_installation_summary_arg_option(command_parser)
+    builder2.commands.command_commons.register_installation_summary_arg_option(
+        command_parser
+    )
     command_parser.add_argument(
         "--quiet", dest="quiet", action="store_true", help="Disable all no error logs"
     )
@@ -117,7 +117,10 @@ def __register_conan_query(query_subparsers):
         "type",
         nargs="?",
         help="Conan profile type",
-        choices=[conan_type.lower() for conan_type in CONAN_PROFILE_TYPES],
+        choices=[
+            conan_type.lower()
+            for conan_type in builder2.conan_manager.CONAN_PROFILE_TYPES
+        ],
     )
 
 

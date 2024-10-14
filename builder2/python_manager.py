@@ -42,6 +42,10 @@ class PythonManager:
         self.run_module("pip", "install", "--upgrade", "pip")
         return binary
 
+    @property
+    def env_path(self) -> pathlib.Path:
+        return self.__venv_path
+
     def get_create_env(
         self,
         target_path: pathlib.Path,

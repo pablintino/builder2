@@ -4,6 +4,7 @@ import signal
 import subprocess
 import threading
 import time
+import typing
 from typing import List, Dict
 
 from builder2 import exceptions
@@ -60,6 +61,7 @@ def run_process(
     timeout: int = 180,
     shell: bool = False,
     silent: bool = False,
+    env: typing.Dict[str, str] = None,
 ):
     working_dir = os.getcwd() if not cwd else cwd
     start_time = time.time()
@@ -74,6 +76,7 @@ def run_process(
                 universal_newlines=True,
                 shell=shell,
                 cwd=working_dir,
+                env=env,
                 # If shell is used attach the setsid to
                 # allow group kill of the processes
                 preexec_fn=os.setsid if shell else None,

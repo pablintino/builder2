@@ -2,8 +2,6 @@ import logging
 import os
 from typing import Dict
 
-from dependency_injector.wiring import inject, Provide
-
 import builder2.loggers
 from builder2 import constants
 from builder2.commands import command_commons
@@ -22,7 +20,6 @@ def __generate_vars_content(variables: Dict[str, str]):
     return content.strip("\n")
 
 
-@inject
 def __source(
     args,
 ):

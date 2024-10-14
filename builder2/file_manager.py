@@ -115,7 +115,10 @@ def __sizeof_fmt(num, suffix="B"):
 
 def download_file(url: str, dst_file: typing.Union[str, os.PathLike]):
     __logger.info("Start download of %s", url)
-    resp = requests.get(url, stream=True)
+    resp = requests.get(url, stream=True, allow_redirects=True)
+    if not resp.ok:
+        # todo: add details
+        raise BuilderException(f"Error downloading {url}. Status: {resp.status_code}")
     total = int(resp.headers.get("content-length", 0))
     received = 0
     last_print = 0

@@ -5,23 +5,23 @@ import typing
 from typing import Dict
 
 import marshmallow.exceptions
-from dependency_injector.wiring import inject, Provide
 
 import builder2.conan_manager
-import builder2.loggers
 import builder2.environment_builder
+import builder2.exceptions
 import builder2.file_manager
-from builder2.di import Container, container_instance
-from builder2.package_manager import PackageManager
+import builder2.loggers
 from builder2.commands import command_commons
-from builder2.exceptions import BuilderException, BuilderValidationException
 from builder2.installation_summary import InstallationSummary
+from builder2.models.cli_models import CliInstallArgs
 from builder2.models.metadata_models import (
     ToolchainMetadataConfigurationSchema,
     ToolchainMetadataConfiguration,
     BaseComponentConfiguration,
 )
-
+from builder2.package_manager import PackageManager
+from builder2.python_manager import PythonManager
+from builder2.tools import build_tool_installer
 
 __logger = logging.getLogger(__name__)
 
@@ -32,11 +32,11 @@ def __load_toolchain_metadata(path) -> ToolchainMetadataConfiguration:
             data=builder2.file_manager.read_json_file(pathlib.Path(path).absolute())
         )
     except FileNotFoundError as err:
-        raise BuilderException(
+        raise builder2.exceptions.BuilderException(
             f"Toolchain metadata file '{path}' not found", exit_code=2
         ) from err
     except marshmallow.exceptions.ValidationError as err:
-        raise BuilderValidationException(
+        raise builder2.exceptions.BuilderValidationException(
             "Validation issues in toolchain metadata", err.messages_dict
         ) from err
 
@@ -85,10 +85,18 @@ def __install_components(
     components: Dict[str, BaseComponentConfiguration],
     target_dir: str,
     installation_summary: InstallationSummary,
+    package_manager: PackageManager,
+    python_manager: PythonManager,
+    cli_config: CliInstallArgs,
 ):
     for component_key, component_config in __sort_components(components).items():
-        with container_instance.tool_installers(
-            type(component_config).__name__, component_key, component_config, target_dir
+        with build_tool_installer(
+            component_key,
+            target_dir,
+            component_config,
+            cli_config,
+            package_manager,
+            python_manager,
         ) as installer:
             installation_model = installer.run_installation()
             builder2.conan_manager.add_profiles_to_component(
@@ -99,25 +107,33 @@ def __install_components(
             installation_summary.add_component(component_key, installation_model)
 
 
-@inject
 def __install(
     args,
-    package_manager: PackageManager = Provide[Container.package_manager],
-    target_dir: str = Provide[Container.config.target_dir],
 ):
     builder2.loggers.configure("INFO" if not args.quiet else "ERROR")
-
+    target_dir = args.target_dir
     try:
+        python_manager = PythonManager(target_dir)
+        package_manager = PackageManager(python_manager)
+        cli_config = CliInstallArgs(
+            core_count=args.core_count, timeout_multiplier=args.timeout_multiplier
+        )
+
         toolchain_metadata = __load_toolchain_metadata(args.filename)
         installation_summary = InstallationSummary()
 
         # Install globally declared packages
-        package_manager.install_packages(toolchain_metadata.packages)
+        package_manager.install_packages(
+            toolchain_metadata.packages, python_manager=python_manager
+        )
 
         __install_components(
             toolchain_metadata.components,
             target_dir,
             installation_summary,
+            package_manager,
+            python_manager,
+            cli_config,
         )
 
         installation_summary.add_environment_variables(
@@ -133,7 +149,7 @@ def __install(
 
         installation_summary.save(target_dir)
 
-    except BuilderException as err:
+    except builder2.exceptions.BuilderException as err:
         command_commons.manage_builder_exceptions(err)
 
 
@@ -172,7 +188,7 @@ def register(subparsers):
     command_parser.add_argument(
         "-t",
         "--timeout-multiplier",
-        dest="timout_mult",
+        dest="timeout_multiplier",
         type=int,
         default=100,
         help="Timeout increase by percentage for each operation",

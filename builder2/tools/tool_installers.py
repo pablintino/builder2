@@ -9,12 +9,14 @@ import tempfile
 import typing
 from urllib.parse import urlparse
 
+import builder2.environment_builder
 import builder2.file_manager
 import builder2.utils
 import builder2.command_line
 import builder2.tools.compilers_support
 import builder2.cryptographic_provider
 from builder2.exceptions import BuilderException
+from builder2.models.cli_models import CliInstallArgs
 from builder2.models.installation_models import (
     ComponentInstallationModel,
     PipPackageInstallationModel,
@@ -23,6 +25,7 @@ from builder2.models.metadata_models import (
     AptPackageInstallationConfiguration,
     BasePackageInstallationConfiguration,
     PipPackageInstallationConfiguration,
+    BaseComponentConfiguration,
 )
 from builder2.package_manager import PackageManager
 from builder2.python_manager import PythonManager
@@ -32,10 +35,23 @@ from builder2.tools.java_support import DIR_NAME_JAVA_HOME
 
 
 class ToolInstaller(metaclass=abc.ABCMeta):
-    def __init__(self, *args, **kwargs):
-        self.tool_key = args[0]
-        self._config = args[1]
-        self._installation_base = args[2]
+    def __init__(
+        self,
+        tool_key: str,
+        target_path: str,
+        config: BaseComponentConfiguration,
+        cli_config: CliInstallArgs,
+        *args,
+        python_manager: PythonManager = None,
+        package_manager: PackageManager = None,
+        create_target: bool = True,
+        known_executables: typing.List[str] = None,
+        **kwargs,
+    ):
+        self.tool_key = tool_key
+        self._config = config
+        self._installation_base = target_path
+        self._package_manager = package_manager
         self._temp_dir = None
         self._sources_dir = None
         self._version = None
@@ -48,14 +64,12 @@ class ToolInstaller(metaclass=abc.ABCMeta):
             if self._config.executables_dir is not None
             else kwargs.get("executables_dir", "bin")
         )
-        self._known_executables = self._config.known_executables or kwargs.get(
-            "known_executables", []
+        self._known_executables = (self._config.known_executables or []) + (
+            known_executables or []
         )
 
-        self._package_manager: PackageManager = kwargs.get("package_manager")
-        global_python_manager: PythonManager = kwargs.get("python_manager")
-        self._core_count: int = kwargs.get("core_count", 10)
-        self._time_multiplier: float = kwargs.get("time_multiplier", 100) / 100.0
+        self._core_count: int = cli_config.core_count or 10
+        self._timeout_multiplier: float = (cli_config.timeout_multiplier or 100) / 100.0
         self._logger = logging.getLogger(self.__class__.__name__)
 
         # If tool is in a group install in their directory
@@ -66,10 +80,10 @@ class ToolInstaller(metaclass=abc.ABCMeta):
         else:
             self._target_dir = os.path.join(self._installation_base, self.tool_key)
 
-        if kwargs.get("create_target", True) and not os.path.exists(self._target_dir):
+        if create_target and not os.path.exists(self._target_dir):
             os.makedirs(self._target_dir, exist_ok=True)
 
-        self._python_manager = global_python_manager.get_create_env(
+        self._tool_python_manager = python_manager.get_create_env(
             pathlib.Path(self._target_dir),
             self.tool_key,
             depends_on=self._config.depends_on,
@@ -134,7 +148,8 @@ class ToolInstaller(metaclass=abc.ABCMeta):
 
     def _acquire_packages(self):
         self._package_manager.install_packages(
-            self._config.required_packages + self._compute_tool_packages()
+            self._config.required_packages + self._compute_tool_packages(),
+            python_manager=self._tool_python_manager,
         )
 
     def _compute_tool_packages(
@@ -174,11 +189,17 @@ class ToolInstaller(metaclass=abc.ABCMeta):
 
 
 class ToolSourceInstaller(ToolInstaller):
-    def __init__(self, *args, **kwargs):
+    def __init__(
+        self,
+        *args,
+        in_source_build: bool = False,
+        timeouts: typing.Tuple[int, int, int] = None,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
         self._build_dir = None
-        self._in_source_build = kwargs.get("in_source_build", False)
-        self._timeouts = kwargs.get("timeouts", (300, 900, 300))
+        self._in_source_build = in_source_build
+        self._timeouts = timeouts or (300, 900, 300)
 
     def _create_config_cmd(self):
         return [
@@ -204,7 +225,7 @@ class ToolSourceInstaller(ToolInstaller):
             cmd,
             cwd=self._sources_dir if not cwd else cwd,
             timeout=builder2.utils.get_command_timeout(
-                timeout if timeout else self._timeouts[0], self._time_multiplier
+                timeout if timeout else self._timeouts[0], self._timeout_multiplier
             ),
             # If command is a string use shell mode
             # (typical cmake cases as it has problems detecting -D opts)
@@ -217,7 +238,7 @@ class ToolSourceInstaller(ToolInstaller):
             self._create_build_cmd(),
             cwd=self._sources_dir if not cwd else cwd,
             timeout=builder2.utils.get_command_timeout(
-                timeout if timeout else self._timeouts[1], self._time_multiplier
+                timeout if timeout else self._timeouts[1], self._timeout_multiplier
             ),
             shell=shell,
         )
@@ -228,7 +249,7 @@ class ToolSourceInstaller(ToolInstaller):
             self._create_install_cmd(),
             cwd=self._sources_dir if not cwd else cwd,
             timeout=builder2.utils.get_command_timeout(
-                timeout if timeout else self._timeouts[2], self._time_multiplier
+                timeout if timeout else self._timeouts[2], self._timeout_multiplier
             ),
             shell=shell,
         )
@@ -740,7 +761,7 @@ class PipBasedToolInstaller(ToolInstaller):
             index=self._config.url,
             force=True,
         )
-        self._pip_install_report = self._python_manager.install_pip_package(
+        self._pip_install_report = self._tool_python_manager.install_pip_package(
             install_config
         )
         if self._pip_install_report:
@@ -768,7 +789,8 @@ class PipBasedToolInstaller(ToolInstaller):
     def _compute_wellknown_paths(self):
         if self._pip_package_path:
             pip_entry_points = (
-                self._python_manager.fetch_entry_points(self._pip_package_path) or {}
+                self._tool_python_manager.fetch_entry_points(self._pip_package_path)
+                or {}
             )
             self._wellknown_paths.update(pip_entry_points)
 
@@ -785,7 +807,7 @@ class AnsibleInstaller(PipBasedToolInstaller):
     def _acquire_packages(self):
         super()._acquire_packages()
         if self._config.runner and self._config.runner.install:
-            self._runner_install_report = self._python_manager.install_pip_package(
+            self._runner_install_report = self._tool_python_manager.install_pip_package(
                 PipPackageInstallationConfiguration(
                     name="ansible-runner",
                     version=self._config.runner.version,
@@ -799,7 +821,7 @@ class AnsibleInstaller(PipBasedToolInstaller):
         super()._compute_wellknown_paths()
         if self._config.runner and self._config.runner.install:
             pip_entry_points = (
-                self._python_manager.fetch_entry_points(
+                self._tool_python_manager.fetch_entry_points(
                     pathlib.Path(self._runner_install_report.location)
                 )
                 or {}
@@ -819,7 +841,7 @@ class AnsibleCollectionInstaller(ToolInstaller):
         collection_dir = pathlib.Path(self._temp_dir.name)
         installer = ansible_support.AnsibleCollectionInstaller(
             collection_dir,
-            self._python_manager,
+            self._tool_python_manager,
         )
         self._install_report = installer.install(
             url=self._config.url,

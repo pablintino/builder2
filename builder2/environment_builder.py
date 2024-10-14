@@ -150,20 +150,24 @@ def __set_python_vars(
     }
 
     # Add the global venv
-    __set_python_env_vars(envs, base_path.joinpath(".venv"))
+    build_python_env_vars(base_path.joinpath(".venv"), envs)
 
     for path in component_envs.keys():
-        __set_python_env_vars(envs, path)
+        build_python_env_vars(path, envs)
 
 
-def __set_python_env_vars(envs: typing.Dict[str, str], path: pathlib.Path):
+def build_python_env_vars(
+    path: pathlib.Path, envs: typing.Dict[str, str] = None
+) -> typing.Dict[str, str]:
+    envs = envs or {}
     if not path.exists():
-        return
+        return envs
     site_packages = next(path.rglob("**/site-packages"), None)
     bins_path = path.joinpath("bin")
     if site_packages and bins_path.exists():
         __insert_into_list_var(envs, constants.ENV_VAR_PATH, str(bins_path))
         __insert_into_list_var(envs, constants.ENV_VAR_PYTHONPATH, str(site_packages))
+    return envs
 
 
 def build_environment_variables(
