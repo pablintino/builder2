@@ -173,7 +173,6 @@ class PipPackageInstallationSchema(PackageInstallationSchema):
         required=False,
         dump_default=None,
         load_default=None,
-        missing=None,
     )
 
     @post_load

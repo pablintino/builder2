@@ -152,8 +152,8 @@ class BasePackageInstallationSchema(Schema):
         fields.String,
         data_key="post-installation",
         load_default=[],
+        dump_default=[],
         required=False,
-        default=[],
         allow_none=True,
     )
 
