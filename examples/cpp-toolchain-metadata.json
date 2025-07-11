@@ -9,11 +9,11 @@
     },
     {
       "type": "apt",
-      "name": "ca-certificates"
+      "name": "curl"
     },
     {
       "type": "apt",
-      "name": "curl"
+      "name": "ca-certificates"
     },
     {
       "type": "apt",
@@ -25,15 +25,23 @@
     },
     {
       "type": "apt",
+      "name": "binutils"
+    },
+    {
+      "type": "apt",
       "name": "ninja-build"
+    },
+    {
+      "type": "apt",
+      "name": "autoconf"
     }
   ],
   "components": {
-    "gcc-11": {
+    "gcc-15": {
       "group": "compilers",
       "type": "gcc-build",
       "name": "gcc",
-      "url": "https://github.com/gcc-mirror/gcc/archive/refs/tags/releases/gcc-11.2.0.tar.gz",
+      "url": "https://github.com/gcc-mirror/gcc/archive/refs/tags/releases/gcc-15.1.0.tar.gz",
       "languages": [
         "c",
         "c++",
@@ -60,67 +68,27 @@
         "--enable-multiarch",
         "--with-system-zlib",
         "--with-target-system-zlib=auto",
-        "--with-default-libstdcxx-abi=new"
+        "--with-default-libstdcxx-abi=new",
+        "--enable-sanitizers"
       ]
     },
-    "gcc-10": {
-      "group": "compilers",
-      "type": "gcc-build",
-      "name": "gcc",
-      "default": true,
-      "url": "https://github.com/gcc-mirror/gcc/archive/refs/tags/releases/gcc-10.3.0.tar.gz",
-      "languages": [
-        "c",
-        "c++",
-        "lto"
-      ],
-      "conan-profile": true,
-      "config-opts": [
-        "--disable-vtable-verify",
-        "--disable-multilib",
-        "--disable-werror",
-        "--without-included-gettext",
-        "--enable-checking=release",
-        "--enable-shared",
-        "--enable-linker-build-id",
-        "--enable-threads=posix",
-        "--enable-nls",
-        "--enable-clocale=gnu",
-        "--enable-libstdcxx-debug",
-        "--enable-libstdcxx-time=yes",
-        "--enable-gnu-unique-object",
-        "--enable-plugin",
-        "--enable-default-pie",
-        "--enable-objc-gc=auto",
-        "--enable-multiarch",
-        "--with-system-zlib",
-        "--with-target-system-zlib=auto",
-        "--with-default-libstdcxx-abi=new"
-      ]
-    },
-    "cmake-3.22": {
+    "cmake-3.31": {
       "name": "cmake",
       "type": "cmake-build",
-      "url": "https://github.com/Kitware/CMake/releases/download/v3.22.1/cmake-3.22.1.tar.gz"
+      "url": "https://github.com/Kitware/CMake/releases/download/v3.31.8/cmake-3.31.8.tar.gz"
     },
-    "gcc-arm-none-eabi-10.3-2021.10": {
-      "group": "compilers",
-      "type": "download-only-compiler",
-      "name": "gcc",
-      "url": "https://developer.arm.com/-/media/Files/downloads/gnu-rm/10.3-2021.10/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2"
-    },
-    "cppcheck-2.6": {
+    "cppcheck-2.17": {
       "type": "cppcheck-build",
       "name": "cppcheck",
       "compile-rules": true,
-      "url": "https://github.com/danmar/cppcheck/archive/refs/tags/2.6.tar.gz"
+      "url": "https://github.com/danmar/cppcheck/archive/refs/tags/2.17.0.tar.gz"
     },
-    "valgrind-3.18.1": {
+    "valgrind-3.25.1": {
       "type": "valgrind-build",
       "name": "valgrind",
-      "url": "https://sourceware.org/pub/valgrind/valgrind-3.18.1.tar.bz2"
+      "url": "https://sourceware.org/pub/valgrind/valgrind-3.25.1.tar.bz2"
     },
-    "clang-13": {
+    "clang-20": {
       "group": "compilers",
       "type": "clang-build",
       "name": "clang",
@@ -128,9 +96,10 @@
       "config-opts": [
         "-DBUILD_SHARED_LIBS=on"
       ],
-      "url": "https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-13.0.0.tar.gz",
+      "url": "https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-20.1.8.tar.gz",
       "modules": [
         "clang",
+        "compiler-rt",
         "clang-tools-extra"
       ]
     }
