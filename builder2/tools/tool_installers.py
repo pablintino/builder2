@@ -324,7 +324,7 @@ class GccSourcesInstaller(ToolSourceInstaller):
 
     def __init__(self, *args, **kwargs):
         super().__init__(
-            *args, in_source_build=True, timeouts=(300, 2100, 300), **kwargs
+            *args, in_source_build=True, timeouts=(300, 3000, 300), **kwargs
         )
 
     def __get_gcc_source_version(self):
@@ -525,10 +525,11 @@ class ClangSourcesInstaller(ToolSourceInstaller):
 
 class CppCheckSourcesInstaller(ToolSourceInstaller):
     __VERSION_FILE_PATTERN = re.compile(
-        r'SET\(VERSION\s?"([a-zA-Z\d.]*)"\)', re.IGNORECASE
+        r'SET\(VERSION\s?"([a-zA-Z\d.]*)"\)', re.IGNORECASE | re.MULTILINE
     )
     __CMAKE_FILE_PATTERN = re.compile(
-        r"^CMAKE_PROJECT_VERSION:[a-zA-Z\d]*=([a-zA-Z\d.]*)$", re.IGNORECASE
+        r"^CMAKE_PROJECT_VERSION:[a-zA-Z\d]*=([a-zA-Z\d.]*)$",
+        re.IGNORECASE | re.MULTILINE,
     )
 
     __BUILD_DEPENDENCIES = ["cmake", "build-essential", "ninja-build"]
