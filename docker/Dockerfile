@@ -1,5 +1,7 @@
 FROM debian:bookworm-slim
 
+ARG DEBIAN_FRONTEND=noninteractive
+
 RUN apt-get update && apt-get install --assume-yes --no-install-recommends \
 		ca-certificates \
         python3 \
